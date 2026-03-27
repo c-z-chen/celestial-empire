@@ -7,23 +7,64 @@ let countyData = {}, prefecturesData = {}, provincesData = {};
 let nextPrefId = 1, nextProvId = 1, capitalId = null;
 let mapViewMode = 'county', activeTab = 'county', selectedCellId = null, mergeMode = null;       
 
-function generateIslandPolygon() {
-    let poly = [];
-    const cx = width / 2, cy = height / 2;
-    for (let a = 0; a < Math.PI * 2; a += 0.1) {
-        let r = 220 + Math.random() * 30 + Math.sin(a * 6) * 15; 
-        let rx = r * 1.4; 
-        let ry = r * 0.9;
-        let x = cx + Math.cos(a) * rx;
-        let y = cy + Math.sin(a) * ry;
-        x = Math.max(10, Math.min(width - 10, x));
-        y = Math.max(10, Math.min(height - 10, y));
-        poly.push([x, y]);
-    }
-    return poly;
+// function generateIslandPolygon() {
+//     let poly = [];
+//     const cx = width / 2, cy = height / 2;
+//     for (let a = 0; a < Math.PI * 2; a += 0.1) {
+//         let r = 220 + Math.random() * 30 + Math.sin(a * 6) * 15; 
+//         let rx = r * 1.4; 
+//         let ry = r * 0.9;
+//         let x = cx + Math.cos(a) * rx;
+//         let y = cy + Math.sin(a) * ry;
+//         x = Math.max(10, Math.min(width - 10, x));
+//         y = Math.max(10, Math.min(height - 10, y));
+//         poly.push([x, y]);
+//     }
+//     return poly;
+// }
+
+function loadChinaMap() {
+    // 请确保当前目录下有一个名为 china.json 的 GeoJSON 文件
+    d3.json("china.json").then(geoData => {
+        let chinaPoly = [];
+        
+        // 自动计算投影缩放比例和居中位置，适配 800x600 画布，留出 20px 的边距
+        const projection = d3.geoMercator()
+            .center([104, 36])       // 中国的地理中心大概在东经 104°，北纬 36° 左右
+            .scale(850)              // 放大倍数（原来如果是 700，现在调大到 850 或 900）
+            .translate([width / 2, height / 2 + 40]); // 平移到画布正中，并整体往下挪 40 像素
+
+        // 获取最大的那个多边形边界（这里以普通的 GeoJSON 结构为例，具体视你的 JSON 结构而定）
+        // 如果你的 JSON 最外层是 FeatureCollection：
+        let coordinates = geoData.features[0].geometry.coordinates[0];
+        
+        // 如果数据嵌套了多层（比如 MultiPolygon），可能需要 coordinates[0][0]
+        if (Array.isArray(coordinates[0][0])) {
+            coordinates = coordinates[0]; 
+        }
+
+        // 把经纬度转换为屏幕像素坐标
+        for (let i = 0; i < coordinates.length; i++) {
+            let point = coordinates[i]; 
+            if (Array.isArray(point) && point.length === 2) {
+                let screenCoord = projection(point); // 经纬度转换
+                chinaPoly.push(screenCoord);
+            }
+        }
+        
+        islandPoly = chinaPoly; 
+        
+        // 数据准备完毕，开始撒点和生成泰森多边形
+        generateNewWorld();
+        
+    }).catch(error => {
+        console.error("加载地图数据失败:", error);
+        alert("地图加载失败，请检查 china.json 文件是否存在及格式是否正确！");
+    });
 }
 
-let islandPoly = generateIslandPolygon();
+// let islandPoly = generateIslandPolygon();
+let islandPoly = [];
 
 function getClippedPolygonArea(voronoiCell, islandPolygon) {
     if (!voronoiCell || voronoiCell.length < 3) return 0;
@@ -78,7 +119,7 @@ function getClippedPolygonArea(voronoiCell, islandPolygon) {
 // ==========================================
 function generateNewWorld() {
     points = [];
-    islandPoly = generateIslandPolygon(); 
+    // islandPoly = generateIslandPolygon(); 
 
     while(points.length < numCounties) {
         let x = Math.random() * width;
@@ -505,5 +546,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('inp-county-name')?.addEventListener('change', (e) => { if(selectedCellId!==null) countyData[countyData[selectedCellId].masterId].name = e.target.value; });
     document.getElementById('inp-county-gov')?.addEventListener('change', (e) => { if(selectedCellId!==null) countyData[countyData[selectedCellId].masterId].official = e.target.value; });
 
-    generateNewWorld();
+    // generateNewWorld();
+    loadChinaMap();
 });
