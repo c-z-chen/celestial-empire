@@ -1,6 +1,3 @@
-// ==========================================
-// 1. 全局状态 (State)
-// ==========================================
 const width = 1000, height = 700; // 稍微改宽一点以适应真实中国地图
 let currentTransform = d3.zoomIdentity; 
 let zoomBehavior;
@@ -44,56 +41,112 @@ function initWorldData() {
     nextPrefId = 1; nextProvId = 1; 
     if (typeof NameGen !== 'undefined' && NameGen.generatedNames) NameGen.generatedNames.clear();
 
-    let capitalNeighbors = neighborsMap[capitalId] || [];
+    const coastalProvinces = ["江苏", "浙江", "福建", "广东", "山东", "直隶", "盛京", "台湾"];
+    
+    // 1820年人口密度基数 (人/平方公里)
+    const popDensityMap = {
+        "直隶": 90, "江苏": 340, "浙江": 250, "安徽": 230, "山东": 200, "江西": 150, "福建": 120, "广东": 100, "河南": 130, "湖北": 170, "湖南": 100, "四川": 60, "山西": 70, "陕西": 70, "广西": 60, "云南": 15, "贵州": 40, "甘肃": 25, "盛京": 20, "内蒙古": 4, "新疆": 1, "乌里雅苏台": 1,
+    };
+
+    let provNameToId = {};
+    let prefNameToId = {};
 
     geoFeatures.forEach((f, i) => {
-        let props = f.properties;
-        let rawName = props.SYS_NAME || props.CH_NAME || props.NM_CH || props.NAME_CH || props.name || "未知府州";
-        let typeCh = props.TYPE_CH || props.type_ch || ""; 
-        let realName = rawName + (rawName.endsWith(typeCh) ? "" : typeCh);
+        const props = f.properties;
+        const provName = props.LEV1_CH || "未知省份";
+        const prefName = props.LEV2_CH || "未知府州";
+        const realName = (props.SYS_NAME || props.NAME_CH || "未知");
 
-        let centerGeo = f.properties.centroid || f.properties.center || d3.geoCentroid(f);
-        let centerPixel = pathGenerator.projection()(centerGeo);
+        if (!provNameToId[provName]) {
+            provNameToId[provName] = nextProvId++;
+            let title = (provName.includes("直隶") || provName.includes("四川")) ? "总督" : "巡抚";
+            provincesData[provNameToId[provName]] = {
+                id: provNameToId[provName], name: provName,
+                official: typeof NameGen !== 'undefined' ? `${NameGen.person()} (${title})` : title,
+                color: d3.hsl(Math.random() * 360, 0.65, 0.6).hex(),
+                capitalCountyId: i 
+            };
+        }
+        const currentProvId = provNameToId[provName];
 
-        let isCapital = (i === capitalId);
-        let isCapitalVicinity = !isCapital && capitalNeighbors.includes(i);
+        const prefKey = provName + "-" + prefName;
+        if (!prefNameToId[prefKey]) {
+            prefNameToId[prefKey] = nextPrefId++;
+            prefecturesData[prefNameToId[prefKey]] = {
+                id: prefNameToId[prefKey], provId: currentProvId, name: prefName,
+                official: typeof NameGen !== 'undefined' ? `${NameGen.person()} (知府)` : "知府",
+                color: d3.hsl(Math.random() * 360, 0.65, 0.6).hex(),
+                capitalCountyId: i 
+            };
+        }
+        const currentPrefId = prefNameToId[prefKey];
+
+        // (1 平方公里 = 15 顷)
+        const sqKm = d3.geoArea(f) * 6371 * 6371;
+        const landArea = Math.max(1, Math.round(sqKm * 15));
+        const density = (popDensityMap[provName] || 30) * (0.8 + Math.random() * 0.4);
+        let pop = Math.max(1000, Math.round(sqKm * density));
+
+        let economyStr = "平平";
+        let industryStr = "农业";
+        let isOfficialRun = false; 
+
+        const isCapital = (i === capitalId);
+        const isCapitalVicinity = !isCapital && (neighborsMap[capitalId] || []).includes(i);
         
-        let countyName = isCapital ? `京师 (${realName})` : realName;
-        
-        let rawArea = pathGenerator.area(f); 
-        let landArea = Math.max(1, Math.round(rawArea * 5));
-        
-        let ecoIdx = Math.floor(Math.random() * 3) + 2; 
-        let density = 10 + (ecoIdx * 12) + (Math.random() * 10); 
-        let pop = Math.floor(landArea * density * 100); 
-        
-        let popUnit = "人", economyStr = "未知", industryStr = "农业";
+        // 判定沿海：在沿海省份，且随机概率或根据地理位置（这里简化为省份内 30% 几率作为沿海县）
+        const isCoastal = coastalProvinces.includes(provName) && (Math.random() > 0.7);
 
         if (isCapital) {
-            pop = Math.floor(pop * 5 + 2000000); 
+            pop = Math.floor(pop + 1500000);
             economyStr = "天子脚下";
-            industryStr = "首都"; 
+            industryStr = "中枢六部";
         } else if (isCapitalVicinity) {
-            pop = Math.floor(pop * 2.5 + 500000);
             economyStr = "京畿重地";
-            industryStr = typeof CapitalVicinityIndustries !== 'undefined' ? CapitalVicinityIndustries[Math.floor(Math.random() * CapitalVicinityIndustries.length)] : "百业";
+            industryStr = CapitalVicinityIndustries[Math.floor(Math.random() * CapitalVicinityIndustries.length)];
         } else {
-            economyStr = typeof EconomyLvls !== 'undefined' ? EconomyLvls[ecoIdx] : "未知";
-            industryStr = typeof BaseIndustries !== 'undefined' ? BaseIndustries[Math.floor(Math.random() * BaseIndustries.length)] : "农业";
+            const ecoIdx = density > 250 ? 4 : (density > 150 ? 3 : (density > 70 ? 2 : (density > 30 ? 1 : 0)));
+            economyStr = EconomyLvls[ecoIdx];
+
+            // 产业分配逻辑
+            if (isCoastal) {
+                industryStr = CoastalSpecialties[Math.floor(Math.random() * CoastalSpecialties.length)];
+            } else {
+                industryStr = (ecoIdx >= 3) ? 
+                    ["丝织", "茶业", "瓷器", "商业"][Math.floor(Math.random()*4)] : 
+                    ["农业", "林木", "药材", "畜牧", "矿业"][Math.floor(Math.random()*5)];
+            }
+
+            if (ecoIdx >= 3 && BureauMap[industryStr] && Math.random() > 0.5) {
+                isOfficialRun = true;
+                economyStr = "官营·" + economyStr;
+            }
+        }
+
+        let countyColor = (isCapital) ? "#F1C40F" : d3.hsl(Math.random() * 360, 0.4, 0.8).hex();
+        if (isCapital) {
+            provincesData[currentProvId].color = "#F1C40F";
+            prefecturesData[currentPrefId].color = "#F1C40F";
+        }
+
+        let countyOfficial = isCapital ? "顺天府尹" : (typeof NameGen !== 'undefined' ? `${NameGen.person()} (知县)` : "知县");
+        
+        if (isOfficialRun) {
+            const bureau = BureauMap[industryStr];
+            countyOfficial += ` | 兼领${bureau}`;
         }
 
         countyData[i] = {
-            id: i, masterId: i, prefId: null, provId: null,
-            isCapital: isCapital,
-            name: countyName,
-            official: isCapital ? "顺天府尹" : (typeof NameGen !== 'undefined' ? NameGen.person() : "无名氏"),
-            color: "#" + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'),
-            center: centerPixel, 
-            area: landArea, 
+            id: i, masterId: i, prefId: currentPrefId, provId: currentProvId,
+            isCapital, name: isCapital ? `京师 (${realName})` : realName,
+            official: countyOfficial,
+            color: countyColor,
+            center: pathGenerator.projection()(d3.geoCentroid(f)),
+            area: landArea,
             population: pop,
-            popUnit: popUnit, 
             economy: economyStr,
-            industry: industryStr
+            industry: industryStr,
+            isOfficialRun: isOfficialRun
         };
     });
 }
@@ -136,9 +189,6 @@ function getDistinctColor(targetCellId, level) {
     return d3.hsl(Math.random() * 360, 0.7, 0.5).hex();
 }
 
-// ==========================================
-// 2. 地图渲染与更新 (Map Rendering)
-// ==========================================
 function renderMap() {
     d3.select("#map-container").selectAll("*").remove();
 
@@ -266,9 +316,6 @@ function highlightSelection(i) {
     });
 }
 
-// ==========================================
-// 3. 业务逻辑与 UI 交互 (UI & Actions)
-// ==========================================
 function switchTab(tabId) {
     activeTab = tabId;
     document.querySelectorAll('.admin-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -451,9 +498,6 @@ function attemptMerge(absId, tgtId, level) {
     toggleMerge(level); setMapView(level); highlightSelection(absId); updateUI();
 }
 
-// ==========================================
-// 5. 存档管理 (Save Manager)
-// ==========================================
 const SaveManager = {
     collectData() { return { points, countyData, prefecturesData, provincesData, nextPrefId, nextProvId, capitalId, islandPoly }; },
     applyData(d) {
@@ -475,9 +519,6 @@ const SaveManager = {
     }
 };
 
-// ==========================================
-// 6. 事件绑定核心大一统 (Init & DOM Bindings)
-// ==========================================
 document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll('.map-toggles button').forEach(btn => {
         btn.addEventListener('click', (e) => setMapView(e.target.dataset.view));
