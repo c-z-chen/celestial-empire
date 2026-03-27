@@ -2,26 +2,25 @@
 // 1. 全局状态 (State)
 // ==========================================
 const width = 1000, height = 700; // 稍微改宽一点以适应真实中国地图
+let currentTransform = d3.zoomIdentity; 
+let zoomBehavior;
 let countyData = {}, prefecturesData = {}, provincesData = {};
 let nextPrefId = 1, nextProvId = 1, capitalId = null;
 let mapViewMode = 'county', activeTab = 'county', selectedCellId = null, mergeMode = null;
 
-let geoFeatures = [];   // 存放真实的区块数据
-let pathGenerator;      // D3 的地理路径生成器
-let neighborsMap = {};  // 存放每个区块相邻关系的字典
+let geoFeatures = [];
+let pathGenerator;
+let neighborsMap = {};
 
 function loadChinaMap() {
-    d3.json("china_cities.json").then(geoData => {
+    d3.json("./maps/qing_1911_counties.json").then(geoData => {
         geoFeatures = geoData.features.filter(f => 
             f.geometry && 
-            (f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon") &&
-            f.properties.adcode !== 100000 && 
-            f.properties.name 
+            (f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon")
         );
 
-        // 【终极修复：解决纯色方块问题】
-        // d3.geoArea 计算的是球面面积，整个地球表面积约为 12.56
-        // 如果一个市的面积算出来大于 6，说明它的坐标画反了，D3 把它当成了“整个地球”！
+        console.log("成功读取地图区块数量：", geoFeatures.length);
+
         geoFeatures.forEach(f => {
             if (d3.geoArea(f) > 6) { 
                 if (f.geometry.type === "Polygon") {
@@ -60,9 +59,11 @@ function initWorldData() {
     let capitalNeighbors = neighborsMap[capitalId] || [];
 
     geoFeatures.forEach((f, i) => {
-        // 读取真实的名字和中心点
-        let realName = f.properties.name || "未知府县";
-        // 获取真实的区块中心经纬度，并转化为屏幕像素坐标 (用于后面画首都图标)
+        let props = f.properties;
+        let rawName = props.SYS_NAME || props.CH_NAME || props.NM_CH || props.NAME_CH || props.name || "未知府州";
+        let typeCh = props.TYPE_CH || props.type_ch || ""; 
+        let realName = rawName + (rawName.endsWith(typeCh) ? "" : typeCh);
+
         let centerGeo = f.properties.centroid || f.properties.center || d3.geoCentroid(f);
         let centerPixel = pathGenerator.projection()(centerGeo);
 
@@ -70,16 +71,13 @@ function initWorldData() {
         let isCapitalVicinity = !isCapital && capitalNeighbors.includes(i);
         
         let countyName = isCapital ? `京师 (${realName})` : realName;
-        let isMilitary = countyName.endsWith("关") || countyName.endsWith("镇");
         
-        // 用真实的地理投影面积来算大致人口基数
         let rawArea = pathGenerator.area(f); 
         let landArea = Math.max(1, Math.round(rawArea * 5));
         
-        // 后续的经济和人口逻辑基本保留你原来的味道
         let ecoIdx = Math.floor(Math.random() * 3) + 2; 
         let density = 10 + (ecoIdx * 12) + (Math.random() * 10); 
-        let pop = Math.floor(landArea * density * 100); // 真实地图面积算出来较小，这里乘大一点
+        let pop = Math.floor(landArea * density * 100); 
         
         let popUnit = "人", economyStr = "未知", industryStr = "农业";
 
@@ -102,7 +100,7 @@ function initWorldData() {
             name: countyName,
             official: isCapital ? "顺天府尹" : (typeof NameGen !== 'undefined' ? NameGen.person() : "无名氏"),
             color: "#" + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'),
-            center: centerPixel, // 屏幕上的中心点坐标
+            center: centerPixel, 
             area: landArea, 
             population: pop,
             popUnit: popUnit, 
@@ -122,7 +120,6 @@ function computeNeighbors(features) {
         let polys = f.geometry.type === "Polygon" ? [coords] : coords; 
         polys.forEach(poly => {
             poly.forEach(ring => {
-                // 【性能修复】：每隔 3 个点采样一次，并降低坐标精度到小数点后 1 位
                 ring.forEach((pt, index) => {
                     if (index % 3 !== 0) return; 
                     let key = pt[0].toFixed(1) + "," + pt[1].toFixed(1);
@@ -161,25 +158,45 @@ function renderMap() {
         .attr("viewBox", `0 0 ${width} ${height}`)
         .attr("width", "100%").attr("height", "100%");
     
-    // 给地图加一个海蓝色的底色背景（可选）
+    // 背景色
     svg.append("rect").attr("width", width).attr("height", height).attr("fill", "#e0f3f8");
 
     const mapGroup = svg.append("g").attr("id", "map-group");
 
-    // 直接渲染真实边界！
     mapGroup.selectAll(".county")
         .data(geoFeatures)
         .enter()
         .append("path")
-        .attr("d", pathGenerator)  // 自动将经纬度转为 SVG 路径
+        .attr("d", pathGenerator)  
         .attr("class", "county")
         .attr("id", (d, i) => "cell-" + i)
-        .attr("stroke", "#ffffff") // 白色边界线
-        .attr("stroke-width", 0.5)
+        .attr("stroke", "#ffffff") 
+        .attr("stroke-width", 0.3)
         .on("click", function(event, d) { 
-            let i = geoFeatures.indexOf(d); // 获取点击区域的 ID
+            let i = geoFeatures.indexOf(d); 
             handleRegionClick(i); 
         });
+
+    zoomBehavior = d3.zoom()
+        .scaleExtent([1, 15]) // 允许放大 1 到 15 倍
+        .on("zoom", (event) => {
+            currentTransform = event.transform;
+            mapGroup.attr("transform", currentTransform);
+            
+            mapGroup.selectAll(".yamen-icon")
+                .attr("transform", function() {
+                    let cx = d3.select(this).attr("data-cx") || 0;
+                    let cy = d3.select(this).attr("data-cy") || 0;
+                    if(d3.select(this).classed("capital-star")) {
+                        return `translate(${cx}, ${cy}) scale(${1/currentTransform.k})`;
+                    }
+                    return `translate(0,0)`; 
+                })
+                .attr("r", 3 / currentTransform.k)
+                .attr("stroke-width", 1 / currentTransform.k);
+        });
+
+    svg.call(zoomBehavior);
 
     setMapView(mapViewMode); 
     updateUI(); 
@@ -489,6 +506,5 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('inp-county-name')?.addEventListener('change', (e) => { if(selectedCellId!==null) countyData[countyData[selectedCellId].masterId].name = e.target.value; });
     document.getElementById('inp-county-gov')?.addEventListener('change', (e) => { if(selectedCellId!==null) countyData[countyData[selectedCellId].masterId].official = e.target.value; });
 
-    // generateNewWorld();
     loadChinaMap();
 });
