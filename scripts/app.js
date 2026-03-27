@@ -112,19 +112,20 @@ function generateNewWorld() {
         let poly = voronoi.cellPolygon(i);
         if (!poly) return;
         
-        let rawPixelArea = getClippedPolygonArea(poly, islandPoly); 
+        // 【核心修改 1：用面积差精准识别所有沿海县】
+        let unclippedArea = Math.abs(d3.polygonArea(poly)); // 原始无边界多边形面积
+        let rawPixelArea = getClippedPolygonArea(poly, islandPoly); // 被海岸线裁剪后的实际面积
         let landArea = Math.max(1, Math.round(rawPixelArea * 3.5));
         
-        let isBorder = hullIndices.has(i); 
+        // 如果原始面积比裁剪后面积大（容差设为5防浮点误差），说明该县边缘被海水“切”了一刀，必定是沿海！
+        let isBorder = (unclippedArea - rawPixelArea) > 5; 
+        
         let isCapital = (i === capitalId);
         let isCapitalVicinity = !isCapital && capitalNeighbors.includes(i);
         
         let countyName = isCapital ? "京师" : (typeof NameGen !== 'undefined' ? NameGen.genCountyName() : "未命名");
         let isMilitary = countyName.endsWith("关") || countyName.endsWith("镇");
         
-        // 官营机构 (非首都、非军镇、非京畿，大约 4% 概率)
-        let hasOfficialBureau = !isCapital && !isCapitalVicinity && !isMilitary && (Math.random() < 0.04);
-
         let ecoIdx = isBorder ? Math.floor(Math.random() * 3) : Math.floor(Math.random() * 3) + 2; 
         let density = isBorder ? 2 + (Math.random() * 8) : 10 + (ecoIdx * 12) + (Math.random() * 10); 
         let pop = Math.floor(landArea * density);
@@ -150,15 +151,17 @@ function generateNewWorld() {
             industryStr = CapitalVicinityIndustries[Math.floor(Math.random() * CapitalVicinityIndustries.length)];
         }
         else {
-            // 普通县城正常分配产业
             economyStr = typeof EconomyLvls !== 'undefined' ? EconomyLvls[ecoIdx] : "未知";
             if (isBorder) {
-                if (Math.random() < 0.3) {
+                // 【核心修改 2：大幅提高沿海特色产业概率】
+                // 75% 的概率靠海吃海，只有 25% 的概率务农经商
+                if (Math.random() < 0.75) {
                     industryStr = CoastalSpecialties[Math.floor(Math.random() * CoastalSpecialties.length)];
                 } else {
                     industryStr = BaseIndustries[Math.floor(Math.random() * BaseIndustries.length)];
                 }
             } else {
+                // 内陆县城
                 industryStr = BaseIndustries[Math.floor(Math.random() * BaseIndustries.length)];
             }
         }
