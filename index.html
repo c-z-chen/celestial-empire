@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>天朝管理界面</title>
+    <link rel="stylesheet" href="style/main.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+
+    <div id="map-container"></div>
+
+    <div id="ui-panel">
+        <div class="map-toggles">
+            <button id="view-county" data-view="county" class="active">县级视图</button>
+            <button id="view-pref" data-view="prefecture">府级视图</button>
+            <button id="view-prov" data-view="province">省级视图</button>
+        </div>
+
+        <div class="admin-tabs">
+            <button class="tab-btn active" data-tab="county">基层(县)</button>
+            <button class="tab-btn" data-tab="pref">中层(府)</button>
+            <button class="tab-btn" data-tab="prov">高层(省)</button>
+        </div>
+
+        <div id="tab-county" class="tab-content active">
+            <div class="info-row">
+                <label>县名:</label>
+                <input type="text" id="inp-county-name" disabled>
+            </div>
+            <div class="info-row">
+                <label>知县:</label>
+                <input type="text" id="inp-county-gov" disabled>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stats-item"><label>人口</label><div id="stat-pop">--</div></div>
+                <div class="stats-item"><label>辖地</label><div id="stat-area">--</div></div>
+                <div class="stats-item"><label>经济</label><div id="stat-econ">--</div></div>
+                <div class="stats-item"><label>产业</label><div id="stat-ind">--</div></div>
+            </div>
+
+            <hr style="border-color: #7f8c8d; margin: 15px 0;">
+            <button id="btn-expand-county" class="action-btn btn-expand" disabled>扩张</button>
+        </div>
+
+        <div id="tab-pref" class="tab-content">
+            <div id="pref-data-view" style="display:none;">
+                <div class="info-row">
+                    <label>府名:</label>
+                    <input type="text" id="inp-pref-name">
+                </div>
+                <div class="info-row">
+                    <label>知府:</label>
+                    <input type="text" id="inp-pref-gov">
+                </div>
+                <div class="info-row">
+                    <label>府治:</label>
+                    <input type="text" id="inp-pref-cap" disabled>
+                </div>
+
+                <div class="stats-grid" style="margin-top: 15px;">
+                    <div class="stats-item"><label>总人口</label><div id="stat-pref-pop">--</div></div>
+                    <div class="stats-item"><label>总面积</label><div id="stat-pref-area">--</div></div>
+                    <div class="stats-item" style="grid-column: 1 / -1;"><label>官营机构与主产</label><div id="stat-pref-ind" style="font-weight: bold; color: #e67e22;">--</div></div>
+                </div>
+
+                <hr style="border-color: #7f8c8d; margin: 20px 0;">
+                <button id="btn-expand-pref" class="action-btn btn-expand">纳入新地</button>
+            </div>
+            <div id="pref-empty-view" class="empty-state">
+                <p>此地尚无府级行政机构。</p>
+                <button id="btn-create-pref" class="action-btn btn-create">设此县为府治</button>
+            </div>
+        </div>
+
+        <div id="tab-prov" class="tab-content">
+            <div id="prov-data-view" style="display:none;">
+                <div class="info-row">
+                    <label>省名:</label>
+                    <input type="text" id="inp-prov-name">
+                </div>
+                <div class="info-row">
+                    <label>巡抚:</label>
+                    <input type="text" id="inp-prov-gov">
+                </div>
+                <div class="info-row">
+                    <label>省会:</label>
+                    <input type="text" id="inp-prov-cap" disabled>
+                </div>
+
+                <div class="stats-grid" style="margin-top: 15px;">
+                    <div class="stats-item"><label>总人口</label><div id="stat-prov-pop">--</div></div>
+                    <div class="stats-item"><label>总面积</label><div id="stat-prov-area">--</div></div>
+                    <div class="stats-item" style="grid-column: 1 / -1;"><label>省域支柱产业</label><div id="stat-prov-ind" style="font-weight: bold; color: #27ae60;">--</div></div>
+                </div>
+
+                <hr style="border-color: #7f8c8d; margin: 20px 0;">
+                <button id="btn-expand-prov" class="action-btn btn-expand">划入新府</button>
+            </div>
+            <div id="prov-empty-view" class="empty-state">
+                <p>此地尚未被划入任何行省。</p>
+                <button id="btn-create-prov" class="action-btn btn-create">设此县为省会</button>
+            </div>
+        </div>
+
+        <div class="system-controls">
+            <button id="btn-save-local" class="sys-btn">💾 存入缓存</button>
+            <button id="btn-load-local" class="sys-btn">📂 读取缓存</button>
+            <button id="btn-export-file" class="sys-btn">⬇️ 导出存档</button>
+            <button id="btn-import-trigger" class="sys-btn">⬆️ 导入存档</button>
+            <input type="file" id="file-upload" style="display:none;" accept=".json">
+        </div>
+    </div>
+
+    <script src="scripts/data.js"></script>
+    <script src="scripts/app.js"></script>
+</body>
+</html>
