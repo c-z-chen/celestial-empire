@@ -13,41 +13,29 @@ let pathGenerator;
 let neighborsMap = {};
 
 function loadChinaMap() {
-    d3.json("./maps/qing_1911_counties.json").then(geoData => {
-        geoFeatures = geoData.features.filter(f => 
-            f.geometry && 
-            (f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon")
-        );
+    d3.json("./maps/qing_1820_counties.json").then(geoData => {
+        geoFeatures = geoData.features.filter(f => f.geometry);
 
         console.log("成功读取地图区块数量：", geoFeatures.length);
 
-        geoFeatures.forEach(f => {
-            if (d3.geoArea(f) > 6) { 
-                if (f.geometry.type === "Polygon") {
-                    f.geometry.coordinates.forEach(ring => ring.reverse());
-                } else if (f.geometry.type === "MultiPolygon") {
-                    f.geometry.coordinates.forEach(poly => poly.forEach(ring => ring.reverse()));
-                }
-            }
-        });
-
-        const validGeoData = { type: "FeatureCollection", features: geoFeatures };
-        const projection = d3.geoMercator().fitSize([width, height], validGeoData);
+        // fitSize 会自动根据 [116, 39] 这种数字计算最合适的缩放
+        const projection = d3.geoMercator().fitSize([width, height], geoData);
         pathGenerator = d3.geoPath().projection(projection);
 
         computeNeighbors(geoFeatures);
 
-        capitalId = 0; 
+        capitalId = null;
         geoFeatures.forEach((f, i) => {
-            if (d3.geoContains(f, [116.39, 39.91])) {
-                capitalId = i;
+            if (d3.geoContains(f, [116.406, 39.906])) {
+                capitalId = i; 
+                console.log("找到京师区块:", f.properties.NAME_CH);
             }
         });
 
         initWorldData();
         renderMap();
     }).catch(err => {
-        console.error("地图加载失败:", err);
+        console.error("地图加载失败，请检查文件路径或格式:", err);
     });
 }
 
@@ -156,10 +144,17 @@ function renderMap() {
 
     const svg = d3.select("#map-container").append("svg")
         .attr("viewBox", `0 0 ${width} ${height}`)
-        .attr("width", "100%").attr("height", "100%");
+        .attr("preserveAspectRatio", "xMidYMid slice") 
+        .style("background-color", "#e0f3f8")
+        .attr("width", "100%")
+        .attr("height", "100%");
     
-    // 背景色
-    svg.append("rect").attr("width", width).attr("height", height).attr("fill", "#e0f3f8");
+    svg.append("rect")
+        .attr("x", -width * 2)
+        .attr("y", -height * 2)
+        .attr("width", width * 5)
+        .attr("height", height * 5)
+        .attr("fill", "#e0f3f8");
 
     const mapGroup = svg.append("g").attr("id", "map-group");
 
@@ -178,20 +173,21 @@ function renderMap() {
         });
 
     zoomBehavior = d3.zoom()
-        .scaleExtent([1, 15]) // 允许放大 1 到 15 倍
+        .scaleExtent([1, 15])
         .on("zoom", (event) => {
             currentTransform = event.transform;
             mapGroup.attr("transform", currentTransform);
             
-            mapGroup.selectAll(".yamen-icon")
-                .attr("transform", function() {
-                    let cx = d3.select(this).attr("data-cx") || 0;
-                    let cy = d3.select(this).attr("data-cy") || 0;
-                    if(d3.select(this).classed("capital-star")) {
-                        return `translate(${cx}, ${cy}) scale(${1/currentTransform.k})`;
-                    }
-                    return `translate(0,0)`; 
+            // 关键：针对 capital-star 进行精准缩放补偿
+            mapGroup.selectAll(".capital-star")
+                .attr("transform", function(d) {
+                    // 使用 datum 存储的原始坐标，只缩放 scale
+                    return `translate(${d.x}, ${d.y}) scale(${1 / currentTransform.k})`;
                 })
+                .attr("stroke-width", 1 / currentTransform.k);
+
+            // 针对普通圆点图标
+            mapGroup.selectAll(".yamen-icon:not(.capital-star)")
                 .attr("r", 3 / currentTransform.k)
                 .attr("stroke-width", 1 / currentTransform.k);
         });
@@ -222,7 +218,9 @@ function drawCapitals() {
     if (capitalId !== null && countyData[capitalId]) {
         let cp = countyData[capitalId].center;
         mapGroup.append("polygon")
+            .datum({x: cp[0], y: cp[1]}) // 绑定坐标数据
             .attr("points", "0,-8 2,-2 8,-2 3,2 5,8 0,5 -5,8 -3,2 -8,-2 -2,-2")
+            // 初始化位置
             .attr("transform", `translate(${cp[0]}, ${cp[1]})`)
             .attr("fill", "gold")
             .attr("stroke", "#c0392b")
