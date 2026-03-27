@@ -47,7 +47,7 @@ function getClippedPolygonArea(voronoiCell, islandPolygon) {
             let A1 = p2[1] - p1[1], B1 = p1[0] - p2[0], C1 = A1 * p1[0] + B1 * p1[1];
             let A2 = e[1] - s[1], B2 = s[0] - e[0], C2 = A2 * s[0] + B2 * s[1];
             let det = A1 * B2 - A2 * B1;
-            if (det === 0) return s; // 平行防报错
+            if (det === 0) return s;
             return [(B2 * C1 - B1 * C2) / det, (A1 * C2 - A2 * C1) / det];
         };
 
@@ -101,7 +101,6 @@ function generateNewWorld() {
     capitalId = Math.floor(Math.random() * numCounties);
     while(hullIndices.has(capitalId)) { capitalId = Math.floor(Math.random() * numCounties); }
 
-    // 【新增】获取首都的接壤邻居，作为“京畿”
     let capitalNeighbors = Array.from(delaunay.neighbors(capitalId));
 
     countyData = {}; prefecturesData = {}; provincesData = {};
@@ -112,12 +111,10 @@ function generateNewWorld() {
         let poly = voronoi.cellPolygon(i);
         if (!poly) return;
         
-        // 【核心修改 1：用面积差精准识别所有沿海县】
-        let unclippedArea = Math.abs(d3.polygonArea(poly)); // 原始无边界多边形面积
-        let rawPixelArea = getClippedPolygonArea(poly, islandPoly); // 被海岸线裁剪后的实际面积
+        let unclippedArea = Math.abs(d3.polygonArea(poly));
+        let rawPixelArea = getClippedPolygonArea(poly, islandPoly);
         let landArea = Math.max(1, Math.round(rawPixelArea * 3.5));
         
-        // 如果原始面积比裁剪后面积大（容差设为5防浮点误差），说明该县边缘被海水“切”了一刀，必定是沿海！
         let isBorder = (unclippedArea - rawPixelArea) > 5; 
         
         let isCapital = (i === capitalId);
@@ -136,7 +133,7 @@ function generateNewWorld() {
 
         if (isCapital) {
             pop = Math.floor(pop * 5 + 200000); 
-            economyStr = "天子脚下 (极度繁华)";
+            economyStr = "天子脚下";
             industryStr = "首都"; 
         } 
         else if (isMilitary) {
@@ -147,21 +144,18 @@ function generateNewWorld() {
         } 
         else if (isCapitalVicinity) {
             pop = Math.floor(pop * 2.5 + 50000);
-            economyStr = "京畿重地 (富庶)";
+            economyStr = "京畿重地";
             industryStr = CapitalVicinityIndustries[Math.floor(Math.random() * CapitalVicinityIndustries.length)];
         }
         else {
             economyStr = typeof EconomyLvls !== 'undefined' ? EconomyLvls[ecoIdx] : "未知";
             if (isBorder) {
-                // 【核心修改 2：大幅提高沿海特色产业概率】
-                // 75% 的概率靠海吃海，只有 25% 的概率务农经商
                 if (Math.random() < 0.75) {
                     industryStr = CoastalSpecialties[Math.floor(Math.random() * CoastalSpecialties.length)];
                 } else {
                     industryStr = BaseIndustries[Math.floor(Math.random() * BaseIndustries.length)];
                 }
             } else {
-                // 内陆县城
                 industryStr = BaseIndustries[Math.floor(Math.random() * BaseIndustries.length)];
             }
         }
@@ -422,7 +416,7 @@ function toggleMerge(level) {
     
     if (mergeMode === level) {
         mergeMode = null; 
-        btn.innerText = level === 'province' ? "划入新府 (Absorb Prefecture)" : level === 'prefecture' ? "纳入新地 (Expand Prefecture)" : "吞并邻县 (Expand Border)"; 
+        btn.innerText = level === 'province' ? "划入新府 (Absorb Prefecture)" : level === 'prefecture' ? "纳入新地 (Expand Prefecture)" : "扩展"; 
         btn.classList.remove("merging-active");
     } else {
         mergeMode = level; 
@@ -441,7 +435,7 @@ function attemptMerge(absId, tgtId, level) {
 
     let isAdj = false;
     for (let id of srcCells) { for (let n of delaunay.neighbors(id)) { if (tgtCells.includes(n)) { isAdj = true; break; } } if (isAdj) break; }
-    if (!isAdj) { alert("只能吞并直接接壤的区域！"); toggleMerge(level); return; }
+    if (!isAdj) { alert("只能扩展至直接接壤的区域！"); toggleMerge(level); return; }
 
     if (level === 'county') {
         let masterAbs = countyData[abs.masterId], masterTgt = countyData[tgt.masterId];
