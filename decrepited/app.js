@@ -1,108 +1,213 @@
 // ==========================================
 // 1. 全局状态 (State)
 // ==========================================
-const width = 1000, height = 700; // 稍微改宽一点以适应真实中国地图
+const width = 800, height = 600, numCounties = 400;
+let points = [], voronoi, delaunay;
 let countyData = {}, prefecturesData = {}, provincesData = {};
 let nextPrefId = 1, nextProvId = 1, capitalId = null;
-let mapViewMode = 'county', activeTab = 'county', selectedCellId = null, mergeMode = null;
+let mapViewMode = 'county', activeTab = 'county', selectedCellId = null, mergeMode = null;       
 
-let geoFeatures = [];   // 存放真实的区块数据
-let pathGenerator;      // D3 的地理路径生成器
-let neighborsMap = {};  // 存放每个区块相邻关系的字典
+// function generateIslandPolygon() {
+//     let poly = [];
+//     const cx = width / 2, cy = height / 2;
+//     for (let a = 0; a < Math.PI * 2; a += 0.1) {
+//         let r = 220 + Math.random() * 30 + Math.sin(a * 6) * 15; 
+//         let rx = r * 1.4; 
+//         let ry = r * 0.9;
+//         let x = cx + Math.cos(a) * rx;
+//         let y = cy + Math.sin(a) * ry;
+//         x = Math.max(10, Math.min(width - 10, x));
+//         y = Math.max(10, Math.min(height - 10, y));
+//         poly.push([x, y]);
+//     }
+//     return poly;
+// }
 
 function loadChinaMap() {
-    d3.json("china_cities.json").then(geoData => {
-        geoFeatures = geoData.features.filter(f => 
-            f.geometry && 
-            (f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon") &&
-            f.properties.adcode !== 100000 && 
-            f.properties.name 
-        );
+    // 请确保当前目录下有一个名为 china.json 的 GeoJSON 文件
+    d3.json("china.json").then(geoData => {
+        let chinaPoly = [];
+        
+        // 自动计算投影缩放比例和居中位置，适配 800x600 画布，留出 20px 的边距
+        const projection = d3.geoMercator()
+            .center([104, 36])       // 中国的地理中心大概在东经 104°，北纬 36° 左右
+            .scale(850)              // 放大倍数（原来如果是 700，现在调大到 850 或 900）
+            .translate([width / 2, height / 2 + 40]); // 平移到画布正中，并整体往下挪 40 像素
 
-        // 【终极修复：解决纯色方块问题】
-        // d3.geoArea 计算的是球面面积，整个地球表面积约为 12.56
-        // 如果一个市的面积算出来大于 6，说明它的坐标画反了，D3 把它当成了“整个地球”！
-        geoFeatures.forEach(f => {
-            if (d3.geoArea(f) > 6) { 
-                if (f.geometry.type === "Polygon") {
-                    f.geometry.coordinates.forEach(ring => ring.reverse());
-                } else if (f.geometry.type === "MultiPolygon") {
-                    f.geometry.coordinates.forEach(poly => poly.forEach(ring => ring.reverse()));
-                }
+        // 获取最大的那个多边形边界（这里以普通的 GeoJSON 结构为例，具体视你的 JSON 结构而定）
+        // 如果你的 JSON 最外层是 FeatureCollection：
+        let coordinates = geoData.features[0].geometry.coordinates[0];
+        
+        // 如果数据嵌套了多层（比如 MultiPolygon），可能需要 coordinates[0][0]
+        if (Array.isArray(coordinates[0][0])) {
+            coordinates = coordinates[0]; 
+        }
+
+        // 把经纬度转换为屏幕像素坐标
+        for (let i = 0; i < coordinates.length; i++) {
+            let point = coordinates[i]; 
+            if (Array.isArray(point) && point.length === 2) {
+                let screenCoord = projection(point); // 经纬度转换
+                chinaPoly.push(screenCoord);
             }
-        });
-
-        const validGeoData = { type: "FeatureCollection", features: geoFeatures };
-        const projection = d3.geoMercator().fitSize([width, height], validGeoData);
-        pathGenerator = d3.geoPath().projection(projection);
-
-        computeNeighbors(geoFeatures);
-
-        capitalId = 0; 
-        geoFeatures.forEach((f, i) => {
-            if (d3.geoContains(f, [116.39, 39.91])) {
-                capitalId = i;
-            }
-        });
-
-        initWorldData();
-        renderMap();
-    }).catch(err => {
-        console.error("地图加载失败:", err);
+        }
+        
+        islandPoly = chinaPoly; 
+        
+        // 数据准备完毕，开始撒点和生成泰森多边形
+        generateNewWorld();
+        
+    }).catch(error => {
+        console.error("加载地图数据失败:", error);
+        alert("地图加载失败，请检查 china.json 文件是否存在及格式是否正确！");
     });
 }
 
-function initWorldData() {
+// let islandPoly = generateIslandPolygon();
+let islandPoly = [];
+
+function getClippedPolygonArea(voronoiCell, islandPolygon) {
+    if (!voronoiCell || voronoiCell.length < 3) return 0;
+    
+    let cp = voronoiCell.slice();
+
+    if (d3.polygonArea(cp) > 0) cp.reverse(); 
+
+    let outputList = islandPolygon;
+
+    for (let i = 0; i < cp.length; i++) {
+        let nextList = [];
+        let p1 = cp[i];
+        let p2 = cp[(i + 1) % cp.length];
+
+        let isInside = function(p) {
+            return (p2[0] - p1[0]) * (p[1] - p1[1]) - (p2[1] - p1[1]) * (p[0] - p1[0]) >= 0;
+        };
+
+        let computeIntersection = function(s, e) {
+            let A1 = p2[1] - p1[1], B1 = p1[0] - p2[0], C1 = A1 * p1[0] + B1 * p1[1];
+            let A2 = e[1] - s[1], B2 = s[0] - e[0], C2 = A2 * s[0] + B2 * s[1];
+            let det = A1 * B2 - A2 * B1;
+            if (det === 0) return s;
+            return [(B2 * C1 - B1 * C2) / det, (A1 * C2 - A2 * C1) / det];
+        };
+
+        for (let j = 0; j < outputList.length; j++) {
+            let s = outputList[j];
+            let e = outputList[(j + 1) % outputList.length];
+            let sIn = isInside(s);
+            let eIn = isInside(e);
+
+            if (sIn && eIn) {
+                nextList.push(e);
+            } else if (sIn && !eIn) {
+                nextList.push(computeIntersection(s, e));
+            } else if (!sIn && eIn) {
+                nextList.push(computeIntersection(s, e));
+                nextList.push(e);
+            }
+        }
+        outputList = nextList;
+        if (outputList.length === 0) break;
+    }
+
+    return outputList.length > 2 ? Math.abs(d3.polygonArea(outputList)) : 0;
+}
+
+// ==========================================
+// 2. 核心数据与生成逻辑 (Core Logic)
+// ==========================================
+function generateNewWorld() {
+    points = [];
+    // islandPoly = generateIslandPolygon(); 
+
+    while(points.length < numCounties) {
+        let x = Math.random() * width;
+        let y = Math.random() * height;
+        if (d3.polygonContains(islandPoly, [x, y])) points.push([x, y]);
+    }
+    
+    for (let iter = 0; iter < 10; iter++) {
+        delaunay = d3.Delaunay.from(points);
+        voronoi = delaunay.voronoi([0, 0, width, height]);
+        points = points.map((p, i) => {
+            let centroid = d3.polygonCentroid(voronoi.cellPolygon(i));
+            return d3.polygonContains(islandPoly, centroid) ? centroid : p;
+        });
+    }
+
+    delaunay = d3.Delaunay.from(points);
+    let hullIndices = new Set(delaunay.hull); 
+
+    capitalId = Math.floor(Math.random() * numCounties);
+    while(hullIndices.has(capitalId)) { capitalId = Math.floor(Math.random() * numCounties); }
+
+    let capitalNeighbors = Array.from(delaunay.neighbors(capitalId));
+
     countyData = {}; prefecturesData = {}; provincesData = {};
     nextPrefId = 1; nextProvId = 1; 
     if (typeof NameGen !== 'undefined' && NameGen.generatedNames) NameGen.generatedNames.clear();
 
-    let capitalNeighbors = neighborsMap[capitalId] || [];
-
-    geoFeatures.forEach((f, i) => {
-        // 读取真实的名字和中心点
-        let realName = f.properties.name || "未知府县";
-        // 获取真实的区块中心经纬度，并转化为屏幕像素坐标 (用于后面画首都图标)
-        let centerGeo = f.properties.centroid || f.properties.center || d3.geoCentroid(f);
-        let centerPixel = pathGenerator.projection()(centerGeo);
-
+    points.forEach((point, i) => {
+        let poly = voronoi.cellPolygon(i);
+        if (!poly) return;
+        
+        let unclippedArea = Math.abs(d3.polygonArea(poly));
+        let rawPixelArea = getClippedPolygonArea(poly, islandPoly);
+        let landArea = Math.max(1, Math.round(rawPixelArea * 3.5));
+        
+        let isBorder = (unclippedArea - rawPixelArea) > 5; 
+        
         let isCapital = (i === capitalId);
         let isCapitalVicinity = !isCapital && capitalNeighbors.includes(i);
         
-        let countyName = isCapital ? `京师 (${realName})` : realName;
+        let countyName = isCapital ? "京师" : (typeof NameGen !== 'undefined' ? NameGen.genCountyName() : "未命名");
         let isMilitary = countyName.endsWith("关") || countyName.endsWith("镇");
         
-        // 用真实的地理投影面积来算大致人口基数
-        let rawArea = pathGenerator.area(f); 
-        let landArea = Math.max(1, Math.round(rawArea * 5));
+        let ecoIdx = isBorder ? Math.floor(Math.random() * 3) : Math.floor(Math.random() * 3) + 2; 
+        let density = isBorder ? 2 + (Math.random() * 8) : 10 + (ecoIdx * 12) + (Math.random() * 10); 
+        let pop = Math.floor(landArea * density);
         
-        // 后续的经济和人口逻辑基本保留你原来的味道
-        let ecoIdx = Math.floor(Math.random() * 3) + 2; 
-        let density = 10 + (ecoIdx * 12) + (Math.random() * 10); 
-        let pop = Math.floor(landArea * density * 100); // 真实地图面积算出来较小，这里乘大一点
-        
-        let popUnit = "人", economyStr = "未知", industryStr = "农业";
+        let popUnit = "人";
+        let economyStr = "";
+        let industryStr = "";
 
         if (isCapital) {
-            pop = Math.floor(pop * 5 + 2000000); 
+            pop = Math.floor(pop * 5 + 200000); 
             economyStr = "天子脚下";
             industryStr = "首都"; 
-        } else if (isCapitalVicinity) {
-            pop = Math.floor(pop * 2.5 + 500000);
+        } 
+        else if (isMilitary) {
+            pop = Math.floor(pop * 0.6 + 3000); 
+            popUnit = "军户";
+            economyStr = MilitaryEconomyLvls[Math.floor(Math.random() * MilitaryEconomyLvls.length)];
+            industryStr = "军镇"; 
+        } 
+        else if (isCapitalVicinity) {
+            pop = Math.floor(pop * 2.5 + 50000);
             economyStr = "京畿重地";
-            industryStr = typeof CapitalVicinityIndustries !== 'undefined' ? CapitalVicinityIndustries[Math.floor(Math.random() * CapitalVicinityIndustries.length)] : "百业";
-        } else {
+            industryStr = CapitalVicinityIndustries[Math.floor(Math.random() * CapitalVicinityIndustries.length)];
+        }
+        else {
             economyStr = typeof EconomyLvls !== 'undefined' ? EconomyLvls[ecoIdx] : "未知";
-            industryStr = typeof BaseIndustries !== 'undefined' ? BaseIndustries[Math.floor(Math.random() * BaseIndustries.length)] : "农业";
+            if (isBorder) {
+                if (Math.random() < 0.75) {
+                    industryStr = CoastalSpecialties[Math.floor(Math.random() * CoastalSpecialties.length)];
+                } else {
+                    industryStr = BaseIndustries[Math.floor(Math.random() * BaseIndustries.length)];
+                }
+            } else {
+                industryStr = BaseIndustries[Math.floor(Math.random() * BaseIndustries.length)];
+            }
         }
 
         countyData[i] = {
             id: i, masterId: i, prefId: null, provId: null,
             isCapital: isCapital,
             name: countyName,
-            official: isCapital ? "顺天府尹" : (typeof NameGen !== 'undefined' ? NameGen.person() : "无名氏"),
+            official: isCapital ? "京兆尹" : (typeof NameGen !== 'undefined' ? NameGen.person() : "无名氏"),
             color: "#" + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'),
-            center: centerPixel, // 屏幕上的中心点坐标
+            center: point,
             area: landArea, 
             population: pop,
             popUnit: popUnit, 
@@ -110,41 +215,7 @@ function initWorldData() {
             industry: industryStr
         };
     });
-}
-
-function computeNeighbors(features) {
-    neighborsMap = {};
-    features.forEach((_, i) => neighborsMap[i] = []);
-    let vertexMap = {}; 
-    
-    features.forEach((f, i) => {
-        let coords = f.geometry.coordinates;
-        let polys = f.geometry.type === "Polygon" ? [coords] : coords; 
-        polys.forEach(poly => {
-            poly.forEach(ring => {
-                // 【性能修复】：每隔 3 个点采样一次，并降低坐标精度到小数点后 1 位
-                ring.forEach((pt, index) => {
-                    if (index % 3 !== 0) return; 
-                    let key = pt[0].toFixed(1) + "," + pt[1].toFixed(1);
-                    if (!vertexMap[key]) vertexMap[key] = new Set();
-                    vertexMap[key].add(i);
-                });
-            });
-        });
-    });
-
-    Object.values(vertexMap).forEach(indicesSet => {
-        let indices = Array.from(indicesSet);
-        if (indices.length > 1) {
-            for (let i = 0; i < indices.length; i++) {
-                for (let j = i + 1; j < indices.length; j++) {
-                    let a = indices[i], b = indices[j];
-                    if (!neighborsMap[a].includes(b)) neighborsMap[a].push(b);
-                    if (!neighborsMap[b].includes(a)) neighborsMap[b].push(a);
-                }
-            }
-        }
-    });
+    renderMap();
 }
 
 function getDistinctColor(targetCellId, level) {
@@ -152,37 +223,28 @@ function getDistinctColor(targetCellId, level) {
 }
 
 // ==========================================
-// 2. 地图渲染与更新 (Map Rendering)
+// 3. 地图渲染与更新 (Map Rendering)
 // ==========================================
 function renderMap() {
     d3.select("#map-container").selectAll("*").remove();
+    delaunay = d3.Delaunay.from(points);
+    voronoi = delaunay.voronoi([-100, -100, width + 100, height + 100]);
 
-    const svg = d3.select("#map-container").append("svg")
-        .attr("viewBox", `0 0 ${width} ${height}`)
-        .attr("width", "100%").attr("height", "100%");
-    
-    // 给地图加一个海蓝色的底色背景（可选）
-    svg.append("rect").attr("width", width).attr("height", height).attr("fill", "#e0f3f8");
-
+    const svg = d3.select("#map-container").append("svg").attr("viewBox", `0 0 ${width} ${height}`).attr("width", "100%").attr("height", "100%");
     const mapGroup = svg.append("g").attr("id", "map-group");
 
-    // 直接渲染真实边界！
-    mapGroup.selectAll(".county")
-        .data(geoFeatures)
-        .enter()
-        .append("path")
-        .attr("d", pathGenerator)  // 自动将经纬度转为 SVG 路径
-        .attr("class", "county")
-        .attr("id", (d, i) => "cell-" + i)
-        .attr("stroke", "#ffffff") // 白色边界线
-        .attr("stroke-width", 0.5)
-        .on("click", function(event, d) { 
-            let i = geoFeatures.indexOf(d); // 获取点击区域的 ID
-            handleRegionClick(i); 
-        });
+    const polyString = islandPoly.map(p => `${p[0]},${p[1]}`).join(" ");
+    svg.append("defs").append("clipPath").attr("id", "island-clip")
+       .append("polygon").attr("points", polyString);
+    
+    mapGroup.attr("clip-path", "url(#island-clip)")
+            .append("polygon").attr("points", polyString).attr("fill", "#2c3e50"); 
 
-    setMapView(mapViewMode); 
-    updateUI(); 
+    points.forEach((point, i) => {
+        mapGroup.append("path").attr("d", voronoi.renderCell(i)).attr("class", "county").attr("id", "cell-" + i)
+            .on("click", function() { handleRegionClick(i); });
+    });
+    setMapView(mapViewMode); updateUI(); 
 }
 
 function drawCapitals() {
@@ -252,7 +314,7 @@ function highlightSelection(i) {
 }
 
 // ==========================================
-// 3. 业务逻辑与 UI 交互 (UI & Actions)
+// 4. 业务逻辑与 UI 交互 (UI & Actions)
 // ==========================================
 function switchTab(tabId) {
     activeTab = tabId;
@@ -413,13 +475,8 @@ function attemptMerge(absId, tgtId, level) {
     let tgtCells = Object.values(countyData).filter(c => (level==='province'&&tgt.prefId!==null)?c.prefId===tgt.prefId:c.masterId===tgt.masterId).map(c=>c.id);
 
     let isAdj = false;
-    for (let id of srcCells) { 
-        let nList = neighborsMap[id] || [];
-        for (let n of nList) { 
-            if (tgtCells.includes(n)) { isAdj = true; break; } 
-        } 
-        if (isAdj) break; 
-    }
+    for (let id of srcCells) { for (let n of delaunay.neighbors(id)) { if (tgtCells.includes(n)) { isAdj = true; break; } } if (isAdj) break; }
+    if (!isAdj) { alert("只能扩展至直接接壤的区域！"); toggleMerge(level); return; }
 
     if (level === 'county') {
         let masterAbs = countyData[abs.masterId], masterTgt = countyData[tgt.masterId];
