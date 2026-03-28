@@ -201,7 +201,7 @@ export function toggleMerge(level) {
 
     if (state.mergeMode === level) {
         state.mergeMode = null;
-        btn.innerText = level === 'province' ? "划入新府" : level === 'prefecture' ? "划入新县" : "划入新地";
+        btn.innerText = level === 'province' ? "划入新府 (Absorb Prefecture)" : level === 'prefecture' ? "纳入新地 (Expand Prefecture)" : "扩展";
         btn.classList.remove("merging-active");
     } else {
         state.mergeMode = level;
