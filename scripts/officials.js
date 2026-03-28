@@ -3,8 +3,6 @@ import { NameGen } from './nameGen.js';
 import { state } from './state.js';
 import { refreshTerritoryPaint, highlightSelection } from './map.js';
 
-// ── Province / governor helper queries ────────────────────────────────────────
-
 export function getProvinceNameById(provId) {
     if (provId === null || !state.provincesData[provId]) return "";
     return state.provincesData[provId].name || "";
@@ -69,8 +67,6 @@ export function renderRosterList(containerId, rosterData) {
     }).join('');
 }
 
-// ── Capital officials panel ────────────────────────────────────────────────────
-
 export function renderCapitalOfficials() {
     const container = document.getElementById('capital-officials-list');
     if (!container) return;
@@ -93,9 +89,16 @@ export function renderCapitalOfficials() {
             officialItem.className = 'official-item';
             let names = [];
             for (let i = 0; i < job.quota; i++) names.push(NameGen.person());
-            let nameDisplay = job.quota > 1
-                ? `<span style="color:#f39c12;font-size:0.8em;">[编${job.quota}人]</span> ${names[0]}等`
-                : names[0];
+            
+            let nameDisplay;
+            if (job.quota === 1) {
+                nameDisplay = names[0];
+            } else if (job.quota === 2) {
+                nameDisplay = `${names[0]}、${names[1]}`;
+            } else {
+                nameDisplay = `<span style="color:#f39c12;font-size:0.8em;">[编${job.quota}人]</span> ${names[0]}等`;
+            }
+            
             officialItem.innerHTML = `
                 <span class="official-title">${job.title}</span>
                 <span class="official-name">${nameDisplay}</span>
@@ -107,8 +110,6 @@ export function renderCapitalOfficials() {
         container.appendChild(rankGroup);
     }
 }
-
-// ── Governor region panel ──────────────────────────────────────────────────────
 
 export function renderCapitalGovernorAssignments() {
     const draftContainer = document.getElementById('capital-governor-titles');

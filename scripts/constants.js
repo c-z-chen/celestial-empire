@@ -376,5 +376,8 @@ export const SpecialOfficialTemplates = {
     "矿局": [
         { title: "矿务监督", rank: "正五品", quota: 1 },
         { title: "矿课大使", rank: "未入流", quota: 2 }
-    ]
+    ],
+    "督粮道": [
+        { title: "督粮道", rank: "正四品", quota: 1 },
+    ],
 };

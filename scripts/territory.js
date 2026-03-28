@@ -551,16 +551,18 @@ export function initWorldData() {
             pref.roster.unshift(...generateRoster(SpecialOfficialTemplates["奉天府"]));
         }
 
-        let hasSalt = false, hasWeaving = false, hasMine = false;
+        let hasSalt = false, hasWeaving = false, hasMine = false, hasAgriculture = false;
         prefCounties.forEach(c => {
             if (c.isOfficialRun && c.industry && c.industry.includes("盐")) hasSalt = true;
             if (c.isOfficialRun && c.industry === "丝织") hasWeaving = true;
             if (c.isOfficialRun && c.industry === "矿业") hasMine = true;
+            if (c.isOfficialRun && c.industry === "农业") hasAgriculture = true;
         });
 
         if (hasSalt) pref.roster.push(...generateRoster(SpecialOfficialTemplates["盐务"]));
         if (hasWeaving) pref.roster.push(...generateRoster(SpecialOfficialTemplates["织造"]));
         if (hasMine) pref.roster.push(...generateRoster(SpecialOfficialTemplates["矿局"]));
+        if (hasAgriculture) pref.roster.push(...generateRoster(SpecialOfficialTemplates["督粮道"]));
     });
 }
 
