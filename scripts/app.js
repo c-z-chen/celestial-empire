@@ -1,4 +1,4 @@
-import { officialData, LocalOfficialTemplates, SpecialOfficialTemplates, NameGen, EconomyLvls, BaseIndustries, CoastalSpecialties, BureauMap, CapitalVicinityIndustries } from './data.js';
+import { officialData, LocalOfficialTemplates, SpecialOfficialTemplates, NameGen, EconomyLvls, CoastalSpecialties, BureauMap, CapitalVicinityIndustries } from './data.js';
 
 const width = 1000, height = 700;
 let currentTransform = d3.zoomIdentity; 
