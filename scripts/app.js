@@ -45,7 +45,7 @@ function initWorldData() {
     
     // 1820年人口密度基数 (人/平方公里)
     const popDensityMap = {
-        "直隶": 90, "江苏": 340, "浙江": 250, "安徽": 230, "山东": 200, "江西": 150, "福建": 120, "广东": 100, "河南": 130, "湖北": 170, "湖南": 100, "四川": 60, "山西": 70, "陕西": 70, "广西": 60, "云南": 15, "贵州": 40, "甘肃": 25, "盛京": 20, "内蒙古": 4, "新疆": 1, "乌里雅苏台": 1,
+        "直隶": 80, "江苏": 340, "浙江": 250, "安徽": 230, "山东": 200, "江西": 150, "福建": 120, "广东": 100, "河南": 130, "湖北": 170, "湖南": 100, "四川": 60, "山西": 70, "陕西": 70, "广西": 60, "云南": 15, "贵州": 40, "甘肃": 25, "盛京": 20, "内蒙古": 4, "新疆": 1, "乌里雅苏台": 1,
     };
 
     let provNameToId = {};
@@ -94,7 +94,7 @@ function initWorldData() {
         const isCapital = (i === capitalId);
         const isCapitalVicinity = !isCapital && (neighborsMap[capitalId] || []).includes(i);
         
-        // 判定沿海：在沿海省份，且随机概率或根据地理位置（这里简化为省份内 30% 几率作为沿海县）
+        // 判定沿海（沿海省份）
         const isCoastal = coastalProvinces.includes(provName) && (Math.random() > 0.7);
 
         if (isCapital) {
@@ -228,15 +228,12 @@ function renderMap() {
             currentTransform = event.transform;
             mapGroup.attr("transform", currentTransform);
             
-            // 关键：针对 capital-star 进行精准缩放补偿
             mapGroup.selectAll(".capital-star")
                 .attr("transform", function(d) {
-                    // 使用 datum 存储的原始坐标，只缩放 scale
                     return `translate(${d.x}, ${d.y}) scale(${1 / currentTransform.k})`;
                 })
                 .attr("stroke-width", 1 / currentTransform.k);
 
-            // 针对普通圆点图标
             mapGroup.selectAll(".yamen-icon:not(.capital-star)")
                 .attr("r", 3 / currentTransform.k)
                 .attr("stroke-width", 1 / currentTransform.k);
@@ -270,7 +267,6 @@ function drawCapitals() {
         mapGroup.append("polygon")
             .datum({x: cp[0], y: cp[1]}) // 绑定坐标数据
             .attr("points", "0,-8 2,-2 8,-2 3,2 5,8 0,5 -5,8 -3,2 -8,-2 -2,-2")
-            // 初始化位置
             .attr("transform", `translate(${cp[0]}, ${cp[1]})`)
             .attr("fill", "gold")
             .attr("stroke", "#c0392b")
@@ -302,6 +298,11 @@ function setMapView(mode) {
     d3.selectAll(".county").attr("fill", (d, i) => getTerritoryColor(i)).attr("fill-opacity", (d, i) => getTerritoryOpacity(i));
     drawCapitals(); 
     if (selectedCellId !== null) highlightSelection(selectedCellId);
+
+    const tabMap = { 'county': 'county', 'prefecture': 'pref', 'province': 'prov' };
+    if (activeTab !== tabMap[mode]) {
+        switchTab(tabMap[mode]);
+    }
 }
 
 function highlightSelection(i) {
@@ -325,6 +326,11 @@ function switchTab(tabId) {
     document.getElementById('tab-' + tabId).classList.add('active');
     
     if (mergeMode) toggleMerge(mergeMode);
+
+    const viewMap = { 'county': 'county', 'pref': 'prefecture', 'prov': 'province' };
+    if (mapViewMode !== viewMap[tabId]) {
+        setMapView(viewMap[tabId]);
+    }
 }
 
 function handleRegionClick(i) {
