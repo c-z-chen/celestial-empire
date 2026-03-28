@@ -169,6 +169,16 @@ function assignPrefectureOfficialBureaus() {
         return text;
     };
 
+    const getPrefEconomyStats = (masters) => {
+        const economicMasters = masters.filter(m => !m.isCapital && !m.isCapitalVicinity);
+        if (!economicMasters.length) return { avgEco: 0, maxEco: 0, richCount: 0 };
+        const ecoScores = economicMasters.map(m => ecoLvlMap[normalizeEconomy(m.economy)] || 0);
+        const avgEco = ecoScores.reduce((sum, s) => sum + s, 0) / ecoScores.length;
+        const maxEco = Math.max(...ecoScores);
+        const richCount = ecoScores.filter(s => s >= 4).length;
+        return { avgEco, maxEco, richCount };
+    };
+
     Object.values(state.prefecturesData).forEach(pref => {
         const prefCounties = Object.values(state.countyData).filter(c => c.prefId === pref.id);
         if (!prefCounties.length) return;
@@ -181,14 +191,10 @@ function assignPrefectureOfficialBureaus() {
             masters.push(state.countyData[c.masterId]);
         });
 
-        // 府级贫弱门槛：平均经济偏低或无富庶以上县时，不设官营机构。
-        const economicMasters = masters.filter(m => !m.isCapital && !m.isCapitalVicinity);
-        if (!economicMasters.length) return;
+        masters.forEach(m => { m.isOfficialRun = false; });
 
-        const ecoScores = economicMasters.map(m => ecoLvlMap[normalizeEconomy(m.economy)] || 0);
-        const avgEco = ecoScores.reduce((sum, s) => sum + s, 0) / ecoScores.length;
-        const maxEco = Math.max(...ecoScores);
-        if (avgEco < 3.2 || maxEco < 4) return;
+        const { avgEco, maxEco, richCount } = getPrefEconomyStats(masters);
+        if (avgEco < 3.35 || maxEco < 4 || richCount < 2) return;
 
         const indCount = {};
         const indCounties = {};
@@ -555,7 +561,7 @@ export function initWorldData() {
 
         let hasSalt = false, hasWeaving = false, hasMine = false;
         prefCounties.forEach(c => {
-            if (c.industry && c.industry.includes("盐")) hasSalt = true;
+            if (c.isOfficialRun && c.industry && c.industry.includes("盐")) hasSalt = true;
             if (c.isOfficialRun && c.industry === "丝织") hasWeaving = true;
             if (c.isOfficialRun && c.industry === "矿业") hasMine = true;
         });

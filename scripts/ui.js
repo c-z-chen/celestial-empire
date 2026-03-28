@@ -6,6 +6,11 @@ import { toggleMerge, attemptMerge } from './territory.js';
 
 function aggregateRegionData(regionCounties) {
     let totalPop = 0, totalArea = 0, militaryCount = 0, indCounts = {};
+    let officialIndCounts = {};
+    const ecoLvlMap = { "繁华": 5, "富庶": 4, "平平": 3, "贫困": 2, "凋敝": 1, "天子脚下": 5, "京畿重地": 4 };
+    const normalizeEconomy = (economy = "") => economy.replace("官营·", "").replace("（官营）", "");
+
+    let ecoScores = [];
     let geoTotal = 0, geoCount = 0;
     let coastalCount = 0, frontierCount = 0;
     let uniqueMasters = new Set();
@@ -20,6 +25,12 @@ function aggregateRegionData(regionCounties) {
         if (m.industry !== "首都" && m.industry !== "军镇") {
             indCounts[m.industry] = (indCounts[m.industry] || 0) + 1;
         }
+        if (m.isOfficialRun && m.industry) {
+            officialIndCounts[m.industry] = (officialIndCounts[m.industry] || 0) + 1;
+        }
+        if (!m.isCapital && !m.isCapitalVicinity) {
+            ecoScores.push(ecoLvlMap[normalizeEconomy(m.economy)] || 0);
+        }
         
         if (m.geoProfile) {
             geoTotal += m.geoProfile.geoScore;
@@ -30,12 +41,61 @@ function aggregateRegionData(regionCounties) {
     });
 
     let sortedInds = Object.keys(indCounts).sort((a, b) => indCounts[b] - indCounts[a]);
+    let sortedOfficialInds = Object.keys(officialIndCounts).sort((a, b) => officialIndCounts[b] - officialIndCounts[a]);
+    const avgEco = ecoScores.length ? (ecoScores.reduce((sum, s) => sum + s, 0) / ecoScores.length) : 0;
+    const maxEco = ecoScores.length ? Math.max(...ecoScores) : 0;
+    const richCount = ecoScores.filter(s => s >= 4).length;
+    const hasValidOfficialBureau = Boolean(sortedOfficialInds[0]) && avgEco >= 3.35 && maxEco >= 4 && richCount >= 2;
     const avgGeoScore = geoCount ? (geoTotal / geoCount).toFixed(3) : 0;
     
     return { 
         totalPop, totalArea, militaryCount, topInd: sortedInds[0], secondInd: sortedInds[1],
+        officialTopInd: sortedOfficialInds[0],
+        hasValidOfficialBureau,
         avgGeoScore, coastalCount, frontierCount
     };
+}
+
+function auditPrefectureBureaus() {
+    const ecoLvlMap = { "繁华": 5, "富庶": 4, "平平": 3, "贫困": 2, "凋敝": 1, "天子脚下": 5, "京畿重地": 4 };
+    const normalizeEconomy = (economy = "") => economy.replace("官营·", "").replace("（官营）", "");
+
+    const anomalies = [];
+    Object.values(state.prefecturesData).forEach(pref => {
+        const prefCounties = Object.values(state.countyData).filter(c => c.prefId === pref.id);
+        const uniqueMasters = new Set();
+        const masters = [];
+        prefCounties.forEach(c => {
+            if (uniqueMasters.has(c.masterId)) return;
+            uniqueMasters.add(c.masterId);
+            masters.push(state.countyData[c.masterId]);
+        });
+
+        const nonCapital = masters.filter(m => !m.isCapital && !m.isCapitalVicinity);
+        if (!nonCapital.length) return;
+
+        const hasOfficial = nonCapital.some(m => m.isOfficialRun);
+        const allPoor = nonCapital.every(m => (ecoLvlMap[normalizeEconomy(m.economy)] || 0) <= 2);
+        if (hasOfficial && allPoor) {
+            anomalies.push({
+                prefecture: pref.name,
+                counties: nonCapital.map(m => ({
+                    name: m.name,
+                    economy: m.economy,
+                    industry: m.industry,
+                    isOfficialRun: m.isOfficialRun
+                }))
+            });
+        }
+    });
+
+    if (!anomalies.length) {
+        console.info('[auditPrefectureBureaus] 未发现“全贫困但仍设官营机构”的府。');
+        return [];
+    }
+
+    console.warn('[auditPrefectureBureaus] 发现异常府：', anomalies);
+    return anomalies;
 }
 
 export function updateUI() {
@@ -70,8 +130,8 @@ export function updateUI() {
         let prefStats    = aggregateRegionData(prefCounties);
 
         let prefBureau = "普通州府";
-        if (prefStats.topInd && BureauMap[prefStats.topInd]) {
-            prefBureau = `设${BureauMap[prefStats.topInd]} (主产${prefStats.topInd})`;
+        if (prefStats.hasValidOfficialBureau && prefStats.officialTopInd && BureauMap[prefStats.officialTopInd]) {
+            prefBureau = `设${BureauMap[prefStats.officialTopInd]} (主产${prefStats.officialTopInd})`;
         } else if (prefStats.topInd) {
             prefBureau = `主产${prefStats.topInd}`;
         }
@@ -167,4 +227,8 @@ export function handleRegionClick(i) {
         updateUI();
         highlightSelection(state.selectedCellId);
     }
+}
+
+if (typeof window !== 'undefined') {
+    window.auditPrefectureBureaus = auditPrefectureBureaus;
 }
