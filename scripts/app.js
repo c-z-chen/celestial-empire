@@ -1,4 +1,4 @@
-import { officialData, NameGen, EconomyLvls, BaseIndustries, CoastalSpecialties, BureauMap, CapitalVicinityIndustries } from './data.js'
+import { officialData, NameGen, EconomyLvls, BaseIndustries, CoastalSpecialties, BureauMap, CapitalVicinityIndustries, LocalOfficialTemplates } from './data.js'
 
 const width = 1000, height = 700;
 let currentTransform = d3.zoomIdentity; 
@@ -16,7 +16,7 @@ function renderCapitalOfficials() {
     if (!container) return;
     container.innerHTML = '';
 
-    for (const [rank, titles] of Object.entries(officialData)) {
+    for (const [rank, jobs] of Object.entries(officialData)) { // jobs 现在是对象数组
         const rankGroup = document.createElement('div');
         rankGroup.className = 'rank-group';
         
@@ -28,15 +28,20 @@ function renderCapitalOfficials() {
         const rankList = document.createElement('div');
         rankList.className = 'rank-list';
 
-        titles.forEach(title => {
+        // 统一复用我们刚才写的逻辑，把 jobs 当作一个 roster 渲染成 HTML 塞进去
+        // 但因为京官这里是两列网格布局，所以稍微调整一下 DOM 生成：
+        jobs.forEach(job => {
             const officialItem = document.createElement('div');
             officialItem.className = 'official-item';
             
-            const officialName = typeof NameGen !== 'undefined' ? NameGen.person() : "待补缺";
+            let names = [];
+            for(let i=0; i<job.quota; i++) names.push(typeof NameGen !== 'undefined' ? NameGen.person() : "待补缺");
             
+            let nameDisplay = job.quota > 1 ? `<span style="color:#f39c12;font-size:0.8em;">[编${job.quota}人]</span> ${names[0]}等` : names[0];
+
             officialItem.innerHTML = `
-                <span class="official-title">${title}</span>
-                <span class="official-name">${officialName}</span>
+                <span class="official-title">${job.title}</span>
+                <span class="official-name">${nameDisplay}</span>
             `;
             rankList.appendChild(officialItem);
         });
@@ -101,7 +106,8 @@ function initWorldData() {
                 id: provNameToId[provName], name: provName,
                 official: typeof NameGen !== 'undefined' ? `${NameGen.person()} (${title})` : title,
                 color: d3.hsl(Math.random() * 360, 0.65, 0.6).hex(),
-                capitalCountyId: i 
+                capitalCountyId: i,
+                roster: generateRoster(LocalOfficialTemplates.prov)
             };
         }
         const currentProvId = provNameToId[provName];
@@ -113,7 +119,8 @@ function initWorldData() {
                 id: prefNameToId[prefKey], provId: currentProvId, name: prefName,
                 official: typeof NameGen !== 'undefined' ? `${NameGen.person()} (知府)` : "知府",
                 color: d3.hsl(Math.random() * 360, 0.65, 0.6).hex(),
-                capitalCountyId: i 
+                capitalCountyId: i,
+                roster: generateRoster(LocalOfficialTemplates.pref)
             };
         }
         const currentPrefId = prefNameToId[prefKey];
@@ -182,7 +189,8 @@ function initWorldData() {
             population: pop,
             economy: economyStr,
             industry: industryStr,
-            isOfficialRun: isOfficialRun
+            isOfficialRun: isOfficialRun,
+            roster: generateRoster(LocalOfficialTemplates.county)
         };
     });
 }
@@ -473,7 +481,56 @@ function updateUI() {
         if(document.getElementById('stat-prov-pop')) document.getElementById('stat-prov-pop').innerText = provStats.totalPop.toLocaleString() + " 人" + milStr;
         if(document.getElementById('stat-prov-area')) document.getElementById('stat-prov-area').innerText = provStats.totalArea.toLocaleString() + " 顷";
         if(document.getElementById('stat-prov-ind')) document.getElementById('stat-prov-ind').innerText = provIndStr;
+
+        if (master.roster) renderRosterList('county-officials-list', master.roster);
+    
+        // 渲染府级名单
+        if (cell.prefId !== null && prefecturesData[cell.prefId].roster) {
+            renderRosterList('pref-officials-list', prefecturesData[cell.prefId].roster);
+        }
+        
+        // 渲染省级名单
+        if (cell.provId !== null && provincesData[cell.provId].roster) {
+            renderRosterList('prov-officials-list', provincesData[cell.provId].roster);
+        }
     }
+}
+
+function generateRoster(template) {
+    return template.map(tmpl => {
+        let names = [];
+        for (let i = 0; i < tmpl.quota; i++) {
+            names.push(typeof NameGen !== 'undefined' ? NameGen.person() : "待补缺");
+        }
+        return {
+            title: tmpl.title,
+            rank: tmpl.rank,
+            quota: tmpl.quota,
+            names: names
+        };
+    });
+}
+
+function renderRosterList(containerId, rosterData) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    container.innerHTML = rosterData.map(o => {
+        // 如果编制大于2人，就不把名字全列出来，避免界面撑爆
+        let nameDisplay = "";
+        if (o.quota > 2) {
+            nameDisplay = `<span class="quota-tag">编制${o.quota}人</span> ${o.names[0]}, ${o.names[1]} 等`;
+        } else {
+            nameDisplay = o.names.join('、');
+        }
+
+        return `
+            <div class="roster-item">
+                <span class="roster-title">${o.title} <small>${o.rank ? `(${o.rank})` : ''}</small></span>
+                <span class="roster-names">${nameDisplay}</span>
+            </div>
+        `;
+    }).join('');
 }
 
 function establish(level) {
@@ -481,11 +538,11 @@ function establish(level) {
     let assignedColor = getDistinctColor(selectedCellId, level);
 
     if (level === 'pref') {
-        prefecturesData[nextPrefId] = { name: (typeof NameGen !== 'undefined' ? NameGen.genPrefName(cell.isCapital) : "新府"), official: (typeof NameGen !== 'undefined' ? NameGen.person() : "新知府"), color: assignedColor, capitalCountyId: cell.masterId };
+        prefecturesData[nextPrefId] = { name: (typeof NameGen !== 'undefined' ? NameGen.genPrefName(cell.isCapital) : "新府"), official: (typeof NameGen !== 'undefined' ? NameGen.person() : "新知府"), color: assignedColor, capitalCountyId: cell.masterId, roster: generateRoster(LocalOfficialTemplates.pref) };
         Object.values(countyData).forEach(c => { if (c.masterId === cell.masterId) c.prefId = nextPrefId; });
         nextPrefId++; setMapView('prefecture'); switchTab('pref');
     } else if (level === 'prov') {
-        provincesData[nextProvId] = { name: (typeof NameGen !== 'undefined' ? NameGen.genProvName(cell.isCapital) : "新省"), official: (typeof NameGen !== 'undefined' ? NameGen.person() : "新巡抚"), color: assignedColor, capitalCountyId: cell.masterId };
+        provincesData[nextProvId] = { name: (typeof NameGen !== 'undefined' ? NameGen.genProvName(cell.isCapital) : "新省"), official: (typeof NameGen !== 'undefined' ? NameGen.person() : "新巡抚"), color: assignedColor, capitalCountyId: cell.masterId, roster: generateRoster(LocalOfficialTemplates.prov) };
         if (cell.prefId !== null) Object.values(countyData).forEach(c => { if (c.prefId === cell.prefId) c.provId = nextProvId; });
         else Object.values(countyData).forEach(c => { if (c.masterId === cell.masterId) c.provId = nextProvId; });
         nextProvId++; setMapView('province'); switchTab('prov');

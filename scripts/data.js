@@ -16,108 +16,271 @@ export const BureauMap = {
     "瓷器": "御窑厂"
 };
 
+// data.js
 export const officialData = {
     "正一品": [
-        "太师", "太傅", "太保",
-        "保和殿大学士", "文华殿大学士", "武英殿大学士",
-        "体仁阁大学士", "文渊阁大学士", "东阁大学士",
-        "协办大学士"
+        { title: "太师", quota: 1 },
+        { title: "太傅", quota: 1 },
+        { title: "太保", quota: 1 },
+        { title: "保和殿大学士", quota: 1 },
+        { title: "文华殿大学士", quota: 1 },
+        { title: "武英殿大学士", quota: 1 },
+        { title: "体仁阁大学士", quota: 1 },
+        { title: "文渊阁大学士", quota: 1 },
+        { title: "东阁大学士", quota: 1 },
+        { title: "协办大学士", quota: 2 }
     ],
     "从一品": [
-        "少师", "少傅", "少保",
-        "太子太师", "太子太傅", "太子太保",
-        "协办大学士",
-        "吏部尚书", "户部尚书", "礼部尚书", "兵部尚书", "刑部尚书", "工部尚书",
-        "理藩院尚书", "都察院左右都御史"
+        { title: "少师", quota: 1 },
+        { title: "少傅", quota: 1 },
+        { title: "少保", quota: 1 },
+        { title: "太子太师", quota: 1 },
+        { title: "太子太傅", quota: 1 },
+        { title: "太子太保", quota: 1 },
+        { title: "吏部尚书", quota: 1 },
+        { title: "户部尚书", quota: 1 },
+        { title: "礼部尚书", quota: 1 },
+        { title: "兵部尚书", quota: 1 },
+        { title: "刑部尚书", quota: 1 },
+        { title: "工部尚书", quota: 1 },
+        { title: "理藩院尚书", quota: 1 },
+        { title: "都察院左都御史", quota: 1 },
+        { title: "都察院右都御史", quota: 1 }
     ],
     "正二品": [
-        "太子少师", "太子少傅", "太子少保",
-        "内务府总管", "銮仪卫使"
+        { title: "太子少师", quota: 1 },
+        { title: "太子少傅", quota: 1 },
+        { title: "太子少保", quota: 1 },
+        { title: "内务府总管", quota: 3 },
+        { title: "銮仪卫使", quota: 1 }
     ],
     "从二品": [
-        "吏部左侍郎", "吏部右侍郎", "户部左侍郎", "户部右侍郎",
-        "礼部左侍郎", "礼部右侍郎", "兵部左侍郎", "兵部右侍郎",
-        "刑部左侍郎", "刑部右侍郎", "工部左侍郎", "工部右侍郎",
-        "理藩院左右侍郎", "内阁学士", "翰林院掌院学士"
+        { title: "吏部侍郎", quota: 2 },
+        { title: "户部侍郎", quota: 2 },
+        { title: "礼部侍郎", quota: 2 },
+        { title: "兵部侍郎", quota: 2 },
+        { title: "刑部侍郎", quota: 2 },
+        { title: "工部侍郎", quota: 2 },
+        { title: "理藩院侍郎", quota: 2 },
+        { title: "内阁学士", quota: 6 },
+        { title: "翰林院掌院学士", quota: 2 }
     ],
     "正三品": [
-        "都察院左右副都御史", "宗人府府丞", "通政使司通政使",
-        "大理寺卿", "詹事府詹事", "太常寺卿", "上驷院卿", "大理院少卿"
+        { title: "都察院副都御史", quota: 4 },
+        { title: "宗人府府丞", quota: 1 },
+        { title: "通政使司通政使", quota: 1 },
+        { title: "大理寺卿", quota: 1 },
+        { title: "詹事府詹事", quota: 1 },
+        { title: "太常寺卿", quota: 1 },
+        { title: "上驷院卿", quota: 2 },
+        { title: "大理院少卿", quota: 2 }
     ],
     "从三品": [
-        "光禄寺卿", "太仆寺卿"
+        { title: "光禄寺卿", quota: 1 },
+        { title: "太仆寺卿", quota: 1 }
     ],
     "正四品": [
-        "通政使司副使", "大理寺少卿", "詹事府少詹事",
-        "太常寺少卿", "鸿胪寺卿", "太仆寺少卿",
-        "都察院六科掌印给事中", "佥都御史"
+        { title: "通政使司副使", quota: 2 },
+        { title: "大理寺少卿", quota: 2 },
+        { title: "詹事府少詹事", quota: 2 },
+        { title: "太常寺少卿", quota: 2 },
+        { title: "鸿胪寺卿", quota: 1 },
+        { title: "太仆寺少卿", quota: 2 },
+        { title: "都察院六科掌印给事中", quota: 6 },
+        { title: "佥都御史", quota: 4 }
     ],
     "从四品": [
-        "内阁侍读学士", "翰林院侍读学士", "翰林院侍讲学士",
-        "国子监祭酒", "光禄寺少卿"
+        { title: "内阁侍读学士", quota: 4 },
+        { title: "翰林院侍读学士", quota: 4 },
+        { title: "翰林院侍讲学士", quota: 4 },
+        { title: "国子监祭酒", quota: 2 },
+        { title: "光禄寺少卿", quota: 2 }
     ],
     "正五品": [
-        "左右春坊左右庶子", "通政使司参议", "光禄寺少卿",
-        "六科给事中", "宗人府理事官", "吏部郎中", "户部郎中",
-        "礼部郎中", "兵部郎中", "刑部郎中", "工部郎中",
-        "理藩院郎中", "内务府郎中", "钦天监监正", "太医院院使",
-        "五品京堂"
+        { title: "左右春坊左右庶子", quota: 4 },
+        { title: "通政使司参议", quota: 2 },
+        { title: "六科给事中", quota: 12 },
+        { title: "宗人府理事官", quota: 4 },
+        { title: "吏部郎中", quota: 6 },
+        { title: "户部郎中", quota: 14 },
+        { title: "礼部郎中", quota: 6 },
+        { title: "兵部郎中", quota: 8 },
+        { title: "刑部郎中", quota: 12 },
+        { title: "工部郎中", quota: 6 },
+        { title: "理藩院郎中", quota: 6 },
+        { title: "内务府郎中", quota: 10 },
+        { title: "钦天监监正", quota: 1 },
+        { title: "太医院院使", quota: 1 },
+        { title: "五品京堂", quota: 8 }
     ],
     "从五品": [
-        "翰林院侍读", "翰林院侍讲", "鸿胪寺少卿",
-        "司经局洗马", "宗人府副理事官",
-        "十五道掌印监察御史", "吏部员外郎", "户部员外郎",
-        "礼部员外郎", "兵部员外郎", "刑部员外郎", "工部员外郎",
-        "理藩院员外郎"
+        { title: "翰林院侍读", quota: 8 },
+        { title: "翰林院侍讲", quota: 8 },
+        { title: "鸿胪寺少卿", quota: 2 },
+        { title: "司经局洗马", quota: 2 },
+        { title: "宗人府副理事官", quota: 4 },
+        { title: "十五道掌印监察御史", quota: 15 },
+        { title: "吏部员外郎", quota: 8 },
+        { title: "户部员外郎", quota: 20 },
+        { title: "礼部员外郎", quota: 8 },
+        { title: "兵部员外郎", quota: 10 },
+        { title: "刑部员外郎", quota: 16 },
+        { title: "工部员外郎", quota: 8 },
+        { title: "理藩院员外郎", quota: 8 }
     ],
     "正六品": [
-        "内阁侍读", "左右春坊左右中允", "国子监司业",
-        "吏部主事", "户部主事", "礼部主事", "兵部主事", "刑部主事", "工部主事",
-        "理藩院主事", "宗人府主事", "内务府主事", "都察院都事", "都察院经历",
-        "大理寺左右寺丞", "宗人府经历", "太常寺寺丞", "钦天监监副", "太医院院判",
-        "钦天监春夏秋冬中五官正", "神乐署署正", "僧录司左右善事", "道录司左右正一",
-        "起居注主事"
+        { title: "内阁侍读", quota: 6 },
+        { title: "左右春坊左右中允", quota: 4 },
+        { title: "国子监司业", quota: 3 },
+        { title: "吏部主事", quota: 10 },
+        { title: "户部主事", quota: 24 },
+        { title: "礼部主事", quota: 10 },
+        { title: "兵部主事", quota: 12 },
+        { title: "刑部主事", quota: 20 },
+        { title: "工部主事", quota: 10 },
+        { title: "理藩院主事", quota: 10 },
+        { title: "宗人府主事", quota: 6 },
+        { title: "内务府主事", quota: 15 },
+        { title: "都察院都事", quota: 4 },
+        { title: "都察院经历", quota: 2 },
+        { title: "大理寺左右寺丞", quota: 4 },
+        { title: "宗人府经历", quota: 2 },
+        { title: "太常寺寺丞", quota: 2 },
+        { title: "钦天监监副", quota: 2 },
+        { title: "太医院院判", quota: 2 },
+        { title: "神乐署署正", quota: 1 },
+        { title: "僧录司左右善事", quota: 2 },
+        { title: "道录司左右正一", quota: 2 },
+        { title: "起居注主事", quota: 6 }
     ],
     "从六品": [
-        "左右春坊左右赞善", "翰林院修撰", "光禄寺署正",
-        "钦天监满洲蒙古五官正", "汉军秋官正", "和声署正",
-        "僧录司左右阐教", "道录司左右演法"
+        { title: "左右春坊左右赞善", quota: 4 },
+        { title: "翰林院修撰", quota: 6 },
+        { title: "光禄寺署正", quota: 2 },
+        { title: "钦天监满洲蒙古五官正", quota: 2 },
+        { title: "汉军秋官正", quota: 1 },
+        { title: "和声署正", quota: 1 },
+        { title: "僧录司左右阐教", quota: 2 },
+        { title: "道录司左右演法", quota: 2 }
     ],
     "正七品": [
-        "翰林院编修", "通政使司知事", "通政使司经历", "大理寺左右评事",
-        "太常寺博士", "太常寺满洲读祝官", "赞礼郎", "国子监监丞",
-        "内阁典籍", "太常寺典簿", "太仆寺主簿", "内务府司库",
-        "兵马司副指挥", "各部院七品笔帖式", "中书", "皇史宬尉"
+        { title: "翰林院编修", quota: 20 },
+        { title: "通政使司知事", quota: 2 },
+        { title: "通政使司经历", quota: 2 },
+        { title: "大理寺左右评事", quota: 4 },
+        { title: "太常寺博士", quota: 4 },
+        { title: "太常寺满洲读祝官", quota: 4 },
+        { title: "赞礼郎", quota: 8 },
+        { title: "国子监监丞", quota: 2 },
+        { title: "内阁典籍", quota: 4 },
+        { title: "太常寺典簿", quota: 2 },
+        { title: "太仆寺主簿", quota: 2 },
+        { title: "内务府司库", quota: 10 },
+        { title: "兵马司副指挥", quota: 10 },
+        { title: "各部院七品笔帖式", quota: 80 },
+        { title: "中书", quota: 30 },
+        { title: "皇史宬尉", quota: 2 }
     ],
     "从七品": [
-        "翰林院检讨", "銮仪卫经历", "中书科掌印中书", "内阁中书",
-        "办事中书", "詹事府主簿", "光禄寺典簿", "国子监博士",
-        "国子监助教", "唐古忒学助教", "唐古忒学中书", "钦天监五官灵台郎",
-        "祠祭署奉祀", "和声署署丞"
+        { title: "翰林院检讨", quota: 25 },
+        { title: "銮仪卫经历", quota: 2 },
+        { title: "中书科掌印中书", quota: 1 },
+        { title: "内阁中书", quota: 60 },
+        { title: "办事中书", quota: 20 },
+        { title: "詹事府主簿", quota: 2 },
+        { title: "光禄寺典簿", quota: 2 },
+        { title: "国子监博士", quota: 6 },
+        { title: "国子监助教", quota: 15 },
+        { title: "钦天监五官灵台郎", quota: 4 },
+        { title: "祠祭署奉祀", quota: 2 },
+        { title: "和声署署丞", quota: 2 }
     ],
     "正八品": [
-        "国子监学正", "国子监学录", "钦天监主簿", "太医院御医",
-        "五经博士", "太常寺协律郎", "各部院八品笔帖式",
-        "僧录司左右讲经", "道录司左右至灵", "六部司务"
+        { title: "国子监学正", quota: 6 },
+        { title: "国子监学录", quota: 6 },
+        { title: "钦天监主簿", quota: 2 },
+        { title: "太医院御医", quota: 10 },
+        { title: "五经博士", quota: 20 },
+        { title: "太常寺协律郎", quota: 4 },
+        { title: "各部院八品笔帖式", quota: 120 },
+        { title: "僧录司左右讲经", quota: 2 },
+        { title: "道录司左右至灵", quota: 2 },
+        { title: "六部司务", quota: 12 }
     ],
     "从八品": [
-        "翰林院典簿", "国子监典簿", "鸿胪寺主簿",
-        "钦天监五官司挈壶正", "太医院吏目", "祠祭署祀丞",
-        "神乐署署丞", "僧录司左右觉义", "道录司左右至义"
+        { title: "翰林院典簿", quota: 2 },
+        { title: "国子监典簿", quota: 2 },
+        { title: "鸿胪寺主簿", quota: 2 },
+        { title: "钦天监五官司挈壶正", quota: 2 },
+        { title: "太医院吏目", quota: 8 },
+        { title: "祠祭署祀丞", quota: 2 },
+        { title: "神乐署署丞", quota: 2 },
+        { title: "僧录司左右觉义", quota: 2 },
+        { title: "道录司左右至义", quota: 2 }
     ],
     "正九品": [
-        "钦天监五官监侯", "五官司书", "太常寺赞礼郎",
-        "礼部四译会同馆大使", "九品笔帖式"
+        { title: "钦天监五官监侯", quota: 4 },
+        { title: "五官司书", quota: 4 },
+        { title: "太常寺赞礼郎", quota: 12 },
+        { title: "礼部四译会同馆大使", quota: 2 },
+        { title: "九品笔帖式", quota: 150 }
     ],
     "从九品": [
-        "翰林院待诏", "工部制造库司匠", "国子监典籍",
-        "钦天监博士", "漏刻博士", "鸿胪寺鸣赞", "序班",
-        "会典馆序班", "刑部司狱", "太常寺司乐", "太医院吏目",
-        "礼部四译会同官序班"
+        { title: "翰林院待诏", quota: 4 },
+        { title: "工部制造库司匠", quota: 6 },
+        { title: "国子监典籍", quota: 2 },
+        { title: "钦天监博士", quota: 6 },
+        { title: "漏刻博士", quota: 4 },
+        { title: "鸿胪寺鸣赞", quota: 6 },
+        { title: "序班", quota: 20 },
+        { title: "会典馆序班", quota: 4 },
+        { title: "刑部司狱", quota: 6 },
+        { title: "太常寺司乐", quota: 8 },
+        { title: "太医院吏目", quota: 10 }
     ],
     "未入流": [
-        "翰林院孔目", "都察院库使", "礼部铸印局大使",
-        "兵马司吏目", "崇文门副使", "五城兵马司吏目"
+        { title: "翰林院孔目", quota: 4 },
+        { title: "都察院库使", quota: 8 },
+        { title: "礼部铸印局大使", quota: 2 },
+        { title: "兵马司吏目", quota: 10 },
+        { title: "崇文门副使", quota: 2 },
+        { title: "五城兵马司吏目", quota: 10 }
+    ]
+};
+
+export const LocalOfficialTemplates = {
+    prov: [
+        { title: "布政使", rank: "从二品", quota: 1 },
+        { title: "按察使", rank: "正三品", quota: 1 },
+        { title: "提督学政", rank: "正三品", quota: 1 },
+        { title: "守巡道员", rank: "正四品", quota: 1 },
+        { title: "布政司经历", rank: "从六品", quota: 1 },
+        { title: "按察司经历", rank: "正七品", quota: 1 },
+        { title: "布政司理问", rank: "从六品", quota: 1 },
+        { title: "按察司经历", rank: "正七品", quota: 1 },
+        { title: "布政司都事", rank: "从七品", quota: 1 },
+        { title: "布政司照磨", rank: "从八品", quota: 1 },
+        { title: "按察司知事", rank: "正八品", quota: 1 },
+        { title: "按察司照磨", rank: "正九品", quota: 1 },
+        { title: "按察使司狱", rank: "从九品", quota: 1 }
+    ],
+    pref: [
+        { title: "同知", rank: "正五品", quota: 1 },
+        { title: "通判", rank: "正六品", quota: 2 },
+        { title: "府经历", rank: "正八品", quota: 1 },
+        { title: "府知事", rank: "正九品", quota: 1 },
+        { title: "府教授", rank: "正七品", quota: 1 },
+        { title: "府训导", rank: "从八品", quota: 1 },
+        { title: "府照磨", rank: "从九品", quota: 1 },
+        { title: "府司狱", rank: "从九品", quota: 1 },
+        { title: "府检校", rank: "未入流", quota: 1 }
+    ],
+    county: [
+        { title: "县丞", rank: "正八品", quota: 1 },
+        { title: "教谕", rank: "正八品", quota: 1 }, 
+        { title: "训导", rank: "从八品", quota: 1 },
+        { title: "主簿", rank: "正九品", quota: 1 },
+        { title: "典史", rank: "未入流", quota: 1 }
     ]
 };
 

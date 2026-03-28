@@ -344,3 +344,68 @@ input:disabled {
     text-align: right;
     min-width: 60px;
 }
+
+/* 地方官僚面板样式 */
+.local-officials-panel {
+    margin-top: 15px;
+    background: #2c3e50;
+    border: 1px solid #7f8c8d;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.panel-title {
+    color: #f39c12;
+    font-size: 0.9em;
+    font-weight: bold;
+    border-bottom: 1px solid #34495e;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+}
+
+.roster-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.roster-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start; /* 适应多人换行 */
+    font-size: 0.9em;
+    border-bottom: 1px dashed #34495e;
+    padding-bottom: 5px;
+}
+
+.roster-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.roster-title {
+    color: #bdc3c7;
+    width: 40%;
+}
+
+.roster-title small {
+    color: #7f8c8d;
+    font-size: 0.8em;
+    margin-left: 4px;
+}
+
+.roster-names {
+    color: #ecf0f1;
+    width: 60%;
+    text-align: right;
+    line-height: 1.4;
+}
+
+.quota-tag {
+    color: #f39c12;
+    font-size: 0.8em;
+    background: #1a252f;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-right: 5px;
+}
