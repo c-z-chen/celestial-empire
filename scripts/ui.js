@@ -4,10 +4,10 @@ import { renderRosterList, renderCapitalGovernorAssignments, toggleCapitalGovern
 import { setMapView, refreshTerritoryPaint, drawCapitals, highlightSelection } from './map.js';
 import { toggleMerge, attemptMerge } from './territory.js';
 
-// ── Region aggregation helper ──────────────────────────────────────────────────
-
 function aggregateRegionData(regionCounties) {
     let totalPop = 0, totalArea = 0, militaryCount = 0, indCounts = {};
+    let geoTotal = 0, geoCount = 0;
+    let coastalCount = 0, frontierCount = 0;
     let uniqueMasters = new Set();
 
     regionCounties.forEach(c => {
@@ -20,13 +20,23 @@ function aggregateRegionData(regionCounties) {
         if (m.industry !== "首都" && m.industry !== "军镇") {
             indCounts[m.industry] = (indCounts[m.industry] || 0) + 1;
         }
+        
+        if (m.geoProfile) {
+            geoTotal += m.geoProfile.geoScore;
+            geoCount++;
+            if (m.isCoastal) coastalCount++;
+            if (m.geoProfile.frontierPenalty > 0.3) frontierCount++;
+        }
     });
 
     let sortedInds = Object.keys(indCounts).sort((a, b) => indCounts[b] - indCounts[a]);
-    return { totalPop, totalArea, militaryCount, topInd: sortedInds[0], secondInd: sortedInds[1] };
+    const avgGeoScore = geoCount ? (geoTotal / geoCount).toFixed(3) : 0;
+    
+    return { 
+        totalPop, totalArea, militaryCount, topInd: sortedInds[0], secondInd: sortedInds[1],
+        avgGeoScore, coastalCount, frontierCount
+    };
 }
-
-// ── Main UI update ─────────────────────────────────────────────────────────────
 
 export function updateUI() {
     if (state.selectedCellId === null) return;
@@ -44,7 +54,6 @@ export function updateUI() {
     document.getElementById('stat-econ').innerText = master.economy;
     document.getElementById('stat-ind').innerText  = master.industry;
 
-    // Prefecture panel
     if (cell.prefId === null) {
         document.getElementById('pref-data-view').style.display = 'none';
         document.getElementById('pref-empty-view').style.display = 'block';
@@ -73,7 +82,6 @@ export function updateUI() {
         if (document.getElementById('stat-pref-ind'))  document.getElementById('stat-pref-ind').innerText  = prefBureau;
     }
 
-    // Province panel
     if (cell.provId === null) {
         document.getElementById('prov-data-view').style.display = 'none';
         document.getElementById('prov-empty-view').style.display = 'block';
@@ -112,8 +120,6 @@ export function updateUI() {
     }
 }
 
-// ── Tab switching ──────────────────────────────────────────────────────────────
-
 export function switchTab(tabId) {
     state.activeTab = tabId;
     document.querySelectorAll('.admin-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -145,8 +151,6 @@ export function switchTab(tabId) {
         if (state.selectedCellId !== null) highlightSelection(state.selectedCellId);
     }
 }
-
-// ── Click handler ──────────────────────────────────────────────────────────────
 
 export function handleRegionClick(i) {
     if (isCapitalTabActive()) {

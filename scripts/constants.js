@@ -1,11 +1,38 @@
-// Map dimensions
 export const MAP_WIDTH = 1000;
 export const MAP_HEIGHT = 700;
 
-// Economy & industry levels
+export const SIM_CONFIG = {
+    capitalPopulationFloor: 800000,
+    capitalVicinity_multiplier: 1.6,
+    capitalAdminFactor: 3.5,
+    capitalVicinityAdminFactor: 1.6,
+    
+    populationNoiseMin: 0.9,
+    populationNoiseMax: 1.1,
+    minCountyPopulation: 1000,
+    
+    geoWeights: {
+        fertility: 0.35,
+        waterAccess: 0.25,
+        tradeAccess: 0.20,
+        resourceScore: 0.10,
+        frontierBonus: 0.10
+    },
+    
+    econScoreThresholds: {
+        繁华: 0.82,
+        富庶: 0.65,
+        平平: 0.48,
+        贫困: 0.32
+        // 凋敝: < 0.32
+    },
+    
+    officialRunBaseChance: 0.1,
+    officialRunHighEconomyChance: 0.30
+};
+
 export const EconomyLvls = ["凋敝", "贫困", "平平", "富庶", "繁华"];
 export const MilitaryEconomyLvls = ["苦寒戍边", "军屯自给", "粮草充足", "军备森严"];
-export const CoastalSpecialties = ["渔业", "盐业", "海贸", "造船", "采珠"];
 export const CapitalVicinityIndustries = ["御窑织造", "百业行会", "皇庄贡品", "京通仓储"];
 
 export const BureauMap = {
@@ -19,7 +46,6 @@ export const BureauMap = {
     "瓷器": "御窑厂"
 };
 
-// Capital governor configuration
 export const CAPITAL_MAX_GOVERNORS = 3;
 export const CAPITAL_REGION_COLORS = ["#9b59b6", "#16a085", "#d35400", "#2980b9", "#8e44ad", "#27ae60"];
 export const CAPITAL_GOVERNOR_PAIR_ABBR = {
@@ -55,7 +81,6 @@ export const CAPITAL_PROV_SHORT = {
     "台湾": "台"
 };
 
-// Central government official roster
 export const officialData = {
     "正一品": [
         { title: "太师", quota: 1 },
@@ -287,7 +312,6 @@ export const officialData = {
     ]
 };
 
-// Local official templates by administrative level
 export const LocalOfficialTemplates = {
     prov: [
         { title: "布政使", rank: "从二品", quota: 1 },
@@ -324,7 +348,6 @@ export const LocalOfficialTemplates = {
     ]
 };
 
-// Special official templates for specific prefectures / bureaux
 export const SpecialOfficialTemplates = {
     "顺天府": [
         { title: "顺天府丞", rank: "正四品", quota: 1 },

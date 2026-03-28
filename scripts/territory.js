@@ -1,5 +1,5 @@
 import {
-    EconomyLvls, CoastalSpecialties, CapitalVicinityIndustries, BureauMap,
+    EconomyLvls, CapitalVicinityIndustries, BureauMap,
     LocalOfficialTemplates, SpecialOfficialTemplates
 } from './constants.js';
 import { NameGen } from './nameGen.js';
@@ -7,13 +7,406 @@ import { state } from './state.js';
 import { generateRoster } from './officials.js';
 import { setMapView, refreshTerritoryPaint, highlightSelection } from './map.js';
 
-// ── Internal helpers ───────────────────────────────────────────────────────────
-
 function getDistinctColor() {
     return d3.hsl(Math.random() * 360, 0.7, 0.5).hex();
 }
 
-// ── World initialisation ───────────────────────────────────────────────────────
+function clamp01(value) {
+    return Math.max(0, Math.min(1, value));
+}
+
+const YANGTZE_PROVINCES = new Set(["江苏", "安徽", "湖北", "湖南", "江西", "浙江", "四川"]);
+const NORTH_DRY_PROVINCES = new Set(["直隶", "山东", "山西", "河南", "陕西", "甘肃"]);
+const FRONTIER_PROVINCES = new Set(["新疆", "内蒙古", "乌里雅苏台", "盛京", "云南", "贵州", "广西"]);
+const COASTAL_EDGE_MODE = {
+    "直隶": "east",
+    "山东": "east",
+    "江苏": "east",
+    "浙江": "east",
+    "福建": "east",
+    "广东": "southEast",
+    "盛京": "east",
+    "台湾": "all"
+};
+
+function getCountySimRegionName(props) {
+    const provName = props.LEV1_CH || "未知省份";
+    const prefName = props.LEV2_CH || "";
+    const countyName = (props.SYS_NAME || props.NAME_CH || "");
+    const presLoc = props.PRES_LOC || "";
+
+    const isTaiwanInFujian = provName === "福建" && (
+        prefName.includes("台湾") ||
+        presLoc.includes("台湾") ||
+        countyName.includes("台湾") ||
+        countyName.includes("淡水") ||
+        countyName.includes("噶玛兰") ||
+        countyName.includes("凤山") ||
+        countyName.includes("彰化") ||
+        countyName.includes("嘉义")
+    );
+
+    return isTaiwanInFujian ? "台湾" : provName;
+}
+
+function buildProvinceGeoBounds(features) {
+    const boundsMap = {};
+    features.forEach(f => {
+        const props = f.properties || {};
+        const provName = getCountySimRegionName(props);
+        const [[minLon, minLat], [maxLon, maxLat]] = d3.geoBounds(f);
+        if (!boundsMap[provName]) {
+            boundsMap[provName] = { minLon, minLat, maxLon, maxLat };
+            return;
+        }
+        const b = boundsMap[provName];
+        b.minLon = Math.min(b.minLon, minLon);
+        b.minLat = Math.min(b.minLat, minLat);
+        b.maxLon = Math.max(b.maxLon, maxLon);
+        b.maxLat = Math.max(b.maxLat, maxLat);
+    });
+    return boundsMap;
+}
+
+function isCountyCoastal(provName, centroid, provinceBounds) {
+    const mode = COASTAL_EDGE_MODE[provName];
+    if (!mode) return false;
+    if (mode === "all") return true;
+
+    const bounds = provinceBounds[provName];
+    if (!bounds) return false;
+
+    const [lon, lat] = centroid;
+    const lonSpan = Math.max(0.1, bounds.maxLon - bounds.minLon);
+    const latSpan = Math.max(0.1, bounds.maxLat - bounds.minLat);
+    const eastBand = lon >= bounds.maxLon - lonSpan * 0.28;
+    const southBand = lat <= bounds.minLat + latSpan * 0.25;
+
+    if (mode === "east") return eastBand;
+    if (mode === "southEast") return eastBand || southBand;
+    return false;
+}
+
+function getCountyZoneFlags(provName) {
+    return {
+        isYangtze: YANGTZE_PROVINCES.has(provName),
+        isNorthDry: NORTH_DRY_PROVINCES.has(provName),
+        isFrontier: FRONTIER_PROVINCES.has(provName)
+    };
+}
+
+function calibratePrefectureIndustries() {
+    const pickFrom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+    Object.values(state.prefecturesData).forEach(pref => {
+        const prefCounties = Object.values(state.countyData).filter(c => c.prefId === pref.id);
+        if (!prefCounties.length) return;
+
+        const uniqueMasters = new Set();
+        const masters = [];
+        prefCounties.forEach(c => {
+            if (uniqueMasters.has(c.masterId)) return;
+            uniqueMasters.add(c.masterId);
+            masters.push(state.countyData[c.masterId]);
+        });
+
+        if (!masters.length) return;
+
+        let coastalCnt = 0;
+        let yangtzeCnt = 0;
+        let northDryCnt = 0;
+        let frontierCnt = 0;
+        let taiwanCnt = 0;
+        const indCount = {};
+
+        masters.forEach(m => {
+            if (m.isCoastal) coastalCnt++;
+            if (m.zoneFlags?.isYangtze) yangtzeCnt++;
+            if (m.zoneFlags?.isNorthDry) northDryCnt++;
+            if (m.zoneFlags?.isFrontier) frontierCnt++;
+            if (m.simProvName === "台湾") taiwanCnt++;
+            indCount[m.industry] = (indCount[m.industry] || 0) + 1;
+        });
+
+        const total = masters.length;
+        const dominantIndustry = Object.keys(indCount).sort((a, b) => indCount[b] - indCount[a])[0];
+
+        let prefPool = ["农业", "商业", "林业", "药材"];
+        if (taiwanCnt / total >= 0.5) {
+            prefPool = ["海贸", "盐业", "农业", "商业", "茶业"];
+        } else if (frontierCnt / total >= 0.45) {
+            prefPool = ["畜牧", "军屯", "矿业", "药材"];
+        } else if (coastalCnt / total >= 0.45) {
+            prefPool = ["海贸", "盐业", "丝织", "瓷器", "商业", "造船", "渔业", "采珠"];
+        } else if (yangtzeCnt / total >= 0.45) {
+            prefPool = ["农业", "茶业", "丝织", "商业", "粮食", "渔业"];
+        } else if (northDryCnt / total >= 0.45) {
+            prefPool = ["农业", "矿业", "畜牧", "商业", "药材", "林业"];
+        }
+
+        const needNudge = dominantIndustry && !prefPool.includes(dominantIndustry);
+        if (needNudge) {
+            const target = masters.find(m => !m.isCapital && !m.isCapitalVicinity && !m.isOfficialRun);
+            if (target) target.industry = pickFrom(prefPool);
+        }
+
+        masters.forEach(m => {
+            if (m.isCapital || m.isCapitalVicinity || m.isOfficialRun) return;
+            if (prefPool.includes(m.industry)) return;
+            if (Math.random() < 0.28) {
+                m.industry = pickFrom(prefPool);
+            }
+        });
+    });
+}
+
+function assignPrefectureOfficialBureaus() {
+    const ecoLvlMap = { "繁华": 5, "富庶": 4, "平平": 3, "贫困": 2, "凋敝": 1, "天子脚下": 5, "京畿重地": 4 };
+    const normalizeEconomy = (economy = "") => {
+        let text = economy;
+        text = text.replace("官营·", "");
+        text = text.replace("（官营）", "");
+        return text;
+    };
+
+    Object.values(state.prefecturesData).forEach(pref => {
+        const prefCounties = Object.values(state.countyData).filter(c => c.prefId === pref.id);
+        if (!prefCounties.length) return;
+
+        const uniqueMasters = new Set();
+        const masters = [];
+        prefCounties.forEach(c => {
+            if (uniqueMasters.has(c.masterId)) return;
+            uniqueMasters.add(c.masterId);
+            masters.push(state.countyData[c.masterId]);
+        });
+
+        // 府级贫弱门槛：平均经济偏低或无富庶以上县时，不设官营机构。
+        const economicMasters = masters.filter(m => !m.isCapital && !m.isCapitalVicinity);
+        if (!economicMasters.length) return;
+
+        const ecoScores = economicMasters.map(m => ecoLvlMap[normalizeEconomy(m.economy)] || 0);
+        const avgEco = ecoScores.reduce((sum, s) => sum + s, 0) / ecoScores.length;
+        const maxEco = Math.max(...ecoScores);
+        if (avgEco < 3.2 || maxEco < 4) return;
+
+        const indCount = {};
+        const indCounties = {};
+        masters.forEach(m => {
+            if (m.isCapital || m.isCapitalVicinity) return;
+            indCount[m.industry] = (indCount[m.industry] || 0) + 1;
+            if (!indCounties[m.industry]) indCounties[m.industry] = [];
+            indCounties[m.industry].push(m);
+        });
+
+        if (!Object.keys(indCount).length) return;
+
+        const dominantIndustry = Object.keys(indCount).sort((a, b) => indCount[b] - indCount[a])[0];
+        if (!dominantIndustry || !BureauMap[dominantIndustry]) return;
+
+        const candidates = indCounties[dominantIndustry] || [];
+        if (!candidates.length) return;
+
+        candidates.sort((a, b) => {
+            const aEco = ecoLvlMap[normalizeEconomy(a.economy)] || 0;
+            const bEco = ecoLvlMap[normalizeEconomy(b.economy)] || 0;
+            if (aEco !== bEco) return bEco - aEco;
+            return b.population - a.population;
+        });
+
+        const officialCounty = candidates[0];
+        if (officialCounty && (ecoLvlMap[normalizeEconomy(officialCounty.economy)] || 0) >= 4) {
+            officialCounty.isOfficialRun = true;
+            let eco = officialCounty.economy;
+            if (!eco.includes("官营")) {
+                officialCounty.economy = eco + "（官营）";
+            }
+        }
+    });
+}
+
+function getProvinceBaseProfile(provName) {
+    const profileMap = {
+        "直隶":        { fertility: 0.74, riverAccess: 0.64, oceanAccess: 0.20, tradeAccess: 0.84, resourceScore: 0.36, frontierPenalty: 0.10, densityBase: 70 },
+        "江苏":        { fertility: 0.92, riverAccess: 0.90, oceanAccess: 0.42, tradeAccess: 0.92, resourceScore: 0.38, frontierPenalty: 0.00, densityBase: 350 },
+        "浙江":        { fertility: 0.82, riverAccess: 0.78, oceanAccess: 0.48, tradeAccess: 0.88, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 190 },
+        "安徽":        { fertility: 0.84, riverAccess: 0.82, oceanAccess: 0.02, tradeAccess: 0.64, resourceScore: 0.34, frontierPenalty: 0.00, densityBase: 140 },
+        "山东":        { fertility: 0.76, riverAccess: 0.56, oceanAccess: 0.40, tradeAccess: 0.70, resourceScore: 0.40, frontierPenalty: 0.00, densityBase: 125 },
+        "江西":        { fertility: 0.80, riverAccess: 0.76, oceanAccess: 0.00, tradeAccess: 0.58, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 115 },
+        "福建":        { fertility: 0.66, riverAccess: 0.52, oceanAccess: 0.58, tradeAccess: 0.80, resourceScore: 0.34, frontierPenalty: 0.00, densityBase: 95 },
+        "广东":        { fertility: 0.74, riverAccess: 0.70, oceanAccess: 0.62, tradeAccess: 0.86, resourceScore: 0.36, frontierPenalty: 0.02, densityBase: 110 },
+        "河南":        { fertility: 0.78, riverAccess: 0.50, oceanAccess: 0.00, tradeAccess: 0.56, resourceScore: 0.38, frontierPenalty: 0.00, densityBase: 110 },
+        "湖北":        { fertility: 0.84, riverAccess: 0.88, oceanAccess: 0.00, tradeAccess: 0.66, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 150 },
+        "湖南":        { fertility: 0.79, riverAccess: 0.72, oceanAccess: 0.00, tradeAccess: 0.60, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 100 },
+        "四川":        { fertility: 0.88, riverAccess: 0.70, oceanAccess: 0.00, tradeAccess: 0.54, resourceScore: 0.38, frontierPenalty: 0.10, densityBase: 70 },
+        "山西":        { fertility: 0.40, riverAccess: 0.30, oceanAccess: 0.00, tradeAccess: 0.50, resourceScore: 0.52, frontierPenalty: 0.06, densityBase: 58 },
+        "陕西":        { fertility: 0.48, riverAccess: 0.36, oceanAccess: 0.00, tradeAccess: 0.46, resourceScore: 0.52, frontierPenalty: 0.10, densityBase: 60 },
+        "广西":        { fertility: 0.60, riverAccess: 0.64, oceanAccess: 0.00, tradeAccess: 0.48, resourceScore: 0.44, frontierPenalty: 0.10, densityBase: 48 },
+        "云南":        { fertility: 0.46, riverAccess: 0.48, oceanAccess: 0.00, tradeAccess: 0.34, resourceScore: 0.54, frontierPenalty: 0.16, densityBase: 16 },
+        "贵州":        { fertility: 0.42, riverAccess: 0.44, oceanAccess: 0.00, tradeAccess: 0.32, resourceScore: 0.52, frontierPenalty: 0.14, densityBase: 26 },
+        "甘肃":        { fertility: 0.22, riverAccess: 0.18, oceanAccess: 0.00, tradeAccess: 0.36, resourceScore: 0.56, frontierPenalty: 0.34, densityBase: 20 },
+        "盛京":        { fertility: 0.52, riverAccess: 0.40, oceanAccess: 0.28, tradeAccess: 0.44, resourceScore: 0.44, frontierPenalty: 0.22, densityBase: 18 },
+        "内蒙古":      { fertility: 0.08, riverAccess: 0.10, oceanAccess: 0.00, tradeAccess: 0.24, resourceScore: 0.50, frontierPenalty: 0.50, densityBase: 4 },
+        "新疆":        { fertility: 0.06, riverAccess: 0.08, oceanAccess: 0.00, tradeAccess: 0.24, resourceScore: 0.54, frontierPenalty: 0.58, densityBase: 2 },
+        "乌里雅苏台":  { fertility: 0.03, riverAccess: 0.04, oceanAccess: 0.00, tradeAccess: 0.12, resourceScore: 0.48, frontierPenalty: 0.70, densityBase: 1 },
+        "台湾":        { fertility: 0.56, riverAccess: 0.58, oceanAccess: 0.80, tradeAccess: 0.74, resourceScore: 0.36, frontierPenalty: 0.18, densityBase: 11 },
+    };
+    return profileMap[provName] || {
+        fertility: 0.50,
+        riverAccess: 0.50,
+        oceanAccess: 0.05,
+        tradeAccess: 0.50,
+        resourceScore: 0.35,
+        frontierPenalty: 0.10,
+        densityBase: 30
+    };
+}
+
+function computeCountyGeoProfile({ provName, isCapital, isCapitalVicinity, isCoastal, zoneFlags }) {
+    const base = getProvinceBaseProfile(provName);
+
+    let fertility = base.fertility;
+    let riverAccess = base.riverAccess;
+    let oceanAccess = base.oceanAccess;
+    let tradeAccess = base.tradeAccess;
+    let resourceScore = base.resourceScore;
+    let frontierPenalty = base.frontierPenalty;
+    let adminDifficulty = 0.35;
+
+    if (zoneFlags.isYangtze) {
+        fertility += 0.04;
+        riverAccess += 0.10;
+        tradeAccess += 0.06;
+    }
+    if (zoneFlags.isNorthDry) {
+        fertility -= 0.05;
+        resourceScore += 0.08;
+    }
+    if (zoneFlags.isFrontier) {
+        resourceScore += 0.10;
+        tradeAccess -= 0.05;
+        frontierPenalty += 0.10;
+    }
+
+    if (isCoastal) {
+        oceanAccess += 0.22;
+        tradeAccess += 0.12;
+        resourceScore += 0.03;
+    }
+    if (isCapital) {
+        tradeAccess += 0.20;
+        adminDifficulty = 0.05;
+    } else if (isCapitalVicinity) {
+        tradeAccess += 0.12;
+        adminDifficulty = 0.15;
+    }
+
+    fertility = clamp01(fertility);
+    riverAccess = clamp01(riverAccess);
+    oceanAccess = clamp01(oceanAccess);
+    tradeAccess = clamp01(tradeAccess);
+    resourceScore = clamp01(resourceScore);
+    frontierPenalty = clamp01(frontierPenalty);
+    adminDifficulty = clamp01(adminDifficulty);
+
+    const waterAccess = clamp01(riverAccess * 0.70 + oceanAccess * 0.30);
+
+    const geoScore =
+        fertility * 0.34 +
+        waterAccess * 0.22 +
+        tradeAccess * 0.20 +
+        resourceScore * 0.12 +
+        (1 - frontierPenalty) * 0.12;
+
+    return {
+        fertility,
+        riverAccess,
+        oceanAccess,
+        waterAccess,
+        tradeAccess,
+        resourceScore,
+        frontierPenalty,
+        adminDifficulty,
+        geoScore,
+        densityBase: base.densityBase
+    };
+}
+
+function pickIndustry({ geoProfile, provName, isCapital, isCapitalVicinity, isCoastal, zoneFlags }) {
+    if (isCapital) return "中枢六部";
+    if (isCapitalVicinity) return CapitalVicinityIndustries[Math.floor(Math.random() * CapitalVicinityIndustries.length)];
+
+    const pool = [];
+
+    const pushWeighted = (industry, weight) => {
+        for (let i = 0; i < weight; i++) pool.push(industry);
+    };
+
+    if (isCoastal || geoProfile.oceanAccess > 0.55) {
+        pushWeighted("海贸", 5);
+        pushWeighted("盐业", 4);
+        pushWeighted("造船", 3);
+        pushWeighted("渔业", 3);
+        pushWeighted("丝织", 2);
+        pushWeighted("采珠", 2);
+    }
+
+    if (zoneFlags.isYangtze) {
+        pushWeighted("农业", 5);
+        pushWeighted("茶业", 4);
+        pushWeighted("丝织", 4);
+        pushWeighted("商业", 4);
+        pushWeighted("渔业", 3);
+        pushWeighted("瓷器", 2);
+    }
+
+    if (zoneFlags.isNorthDry) {
+        pushWeighted("农业", 4);
+        pushWeighted("矿业", 3);
+        pushWeighted("瓷器", 3);
+        pushWeighted("商业", 2);
+        pushWeighted("林业", 2);
+    }
+
+    if (zoneFlags.isFrontier || geoProfile.frontierPenalty > 0.42) {
+        pushWeighted("畜牧", 5);
+        pushWeighted("军屯", 4);
+        pushWeighted("矿业", 4);
+        pushWeighted("药材", 3);
+        pushWeighted("林业", 2);
+    }
+
+    const provinceSpecialties = {
+        "安徽": [["农业", 5], ["茶业", 5], ["丝织", 1]],
+        "江苏": [["丝织", 6], ["商业", 5], ["农业", 2]],
+        "山东": [["农业", 5], ["盐业", 5], ["商业", 1]],
+        "浙江": [["丝织", 4], ["茶业", 3], ["商业", 3]],
+        "福建": [["茶业", 4], ["海贸", 3], ["林业", 2]],
+        "广东": [["海贸", 4], ["盐业", 3], ["商业", 3]],
+        "台湾": [["海贸", 3], ["盐业", 2], ["农业", 2]]
+    };
+    (provinceSpecialties[provName] || []).forEach(([industry, weight]) => pushWeighted(industry, weight));
+
+    if (geoProfile.fertility > 0.70) {
+        pushWeighted("农业", 3);
+        pushWeighted("茶业", 2);
+    }
+    if (geoProfile.tradeAccess > 0.70) {
+        pushWeighted("商业", 3);
+        pushWeighted("丝织", 2);
+    }
+    if (geoProfile.resourceScore > 0.55) {
+        pushWeighted("矿业", 2);
+        pushWeighted("药材", 2);
+        pushWeighted("林业", 2);
+    }
+
+    if (pool.length === 0) {
+        pool.push("农业", "林业", "药材", "畜牧", "矿业", "商业");
+    }
+
+    return pool[Math.floor(Math.random() * pool.length)];
+}
 
 export function initWorldData() {
     state.countyData = {};
@@ -26,12 +419,7 @@ export function initWorldData() {
     state.capitalGovernorNextId = 1;
     NameGen.generatedNames.clear();
 
-    const coastalProvinces = ["江苏", "浙江", "福建", "广东", "山东", "直隶", "盛京", "台湾"];
-
-    // 1820年人口密度基数 (人/平方公里)
-    const popDensityMap = {
-        "直隶": 80, "江苏": 340, "浙江": 250, "安徽": 230, "山东": 200, "江西": 150, "福建": 100, "广东": 100, "河南": 130, "湖北": 170, "湖南": 100, "四川": 60, "山西": 70, "陕西": 70, "广西": 60, "云南": 15, "贵州": 40, "甘肃": 25, "盛京": 20, "内蒙古": 4, "新疆": 1, "乌里雅苏台": 1,
-    };
+    const provinceBounds = buildProvinceGeoBounds(state.geoFeatures);
 
     let provNameToId = {};
     let prefNameToId = {};
@@ -41,6 +429,7 @@ export function initWorldData() {
         const provName = props.LEV1_CH || "未知省份";
         const prefName = props.LEV2_CH || "未知府州";
         const realName = (props.SYS_NAME || props.NAME_CH || "未知");
+        const simProvName = getCountySimRegionName(props);
 
         if (!provNameToId[provName]) {
             provNameToId[provName] = state.nextProvId++;
@@ -71,41 +460,53 @@ export function initWorldData() {
         // 1 平方公里 = 15 顷
         const sqKm = d3.geoArea(f) * 6371 * 6371;
         const landArea = Math.max(1, Math.round(sqKm * 15));
-        const density = (popDensityMap[provName] || 30) * (0.8 + Math.random() * 0.4);
-        let pop = Math.max(1000, Math.round(sqKm * density));
 
         let economyStr = "平平";
         let industryStr = "农业";
         let isOfficialRun = false;
 
+        const centroid = d3.geoCentroid(f);
         const isCapital = (i === state.capitalId);
         const isCapitalVicinity = !isCapital && (state.neighborsMap[state.capitalId] || []).includes(i);
-        const isCoastal = coastalProvinces.includes(provName) && (Math.random() > 0.7);
+        const zoneFlags = getCountyZoneFlags(simProvName);
+        const isCoastal = isCountyCoastal(simProvName, centroid, provinceBounds);
+
+        const geoProfile = computeCountyGeoProfile({
+            provName: simProvName,
+            isCapital,
+            isCapitalVicinity,
+            isCoastal,
+            zoneFlags
+        });
+
+        const noise = 0.9 + Math.random() * 0.2; // 0.9 ~ 1.1
+        const adminFactor = isCapital ? 3.5 : (isCapitalVicinity ? 1.6 : 1.0);
+        const density = geoProfile.densityBase * geoProfile.geoScore * adminFactor * noise;
+        let pop = Math.max(1000, Math.round(sqKm * density));
 
         if (isCapital) {
-            pop = Math.floor(pop + 1500000);
+            pop = Math.max(pop, 800000);
             economyStr = "天子脚下";
             industryStr = "中枢六部";
         } else if (isCapitalVicinity) {
+            pop = Math.max(pop, Math.floor(pop * 1.4));
             economyStr = "京畿重地";
             industryStr = CapitalVicinityIndustries[Math.floor(Math.random() * CapitalVicinityIndustries.length)];
         } else {
-            const ecoIdx = density > 250 ? 4 : (density > 150 ? 3 : (density > 70 ? 2 : (density > 30 ? 1 : 0)));
+            const econScore = geoProfile.geoScore * 0.7 + Math.min(1, pop / 1000000) * 0.3;
+            const ecoIdx = econScore > 0.82 ? 4 : (econScore > 0.65 ? 3 : (econScore > 0.48 ? 2 : (econScore > 0.32 ? 1 : 0)));
             economyStr = EconomyLvls[ecoIdx];
 
-            if (isCoastal) {
-                industryStr = CoastalSpecialties[Math.floor(Math.random() * CoastalSpecialties.length)];
-            } else {
-                industryStr = (ecoIdx >= 3)
-                    ? ["丝织", "茶业", "瓷器", "商业"][Math.floor(Math.random() * 4)]
-                    : ["农业", "林木", "药材", "畜牧", "矿业"][Math.floor(Math.random() * 5)];
-            }
+            industryStr = pickIndustry({
+                geoProfile,
+                provName: simProvName,
+                isCapital,
+                isCapitalVicinity,
+                isCoastal,
+                zoneFlags
+            });
 
-            let baseChance = (ecoIdx === 4) ? 0.30 : 0.1;
-            if (ecoIdx >= 3 && BureauMap[industryStr] && Math.random() < baseChance) {
-                isOfficialRun = true;
-                economyStr = "官营·" + economyStr;
-            }
+            isOfficialRun = false;
         }
 
         let countyColor = isCapital ? "#F1C40F" : d3.hsl(Math.random() * 360, 0.4, 0.8).hex();
@@ -121,15 +522,25 @@ export function initWorldData() {
             isCapital, name: isCapital ? `京师 (${realName})` : realName,
             official: countyOfficial,
             color: countyColor,
-            center: state.pathGenerator.projection()(d3.geoCentroid(f)),
+            center: state.pathGenerator.projection()(centroid),
             area: landArea,
             population: pop,
             economy: economyStr,
             industry: industryStr,
             isOfficialRun: isOfficialRun,
+            isCapitalVicinity,
+            isCoastal: isCoastal,
+            simProvName,
+            zoneFlags,
+            ecoIdx: (economyStr === "天子脚下" ? 5 : (economyStr === "京畿重地" ? 4 : (economyStr.startsWith("官营") ? economyStr.split("·")[1] : economyStr))),
+            geoProfile: geoProfile,
             roster: generateRoster(LocalOfficialTemplates.county)
         };
     });
+
+    calibratePrefectureIndustries();
+
+    assignPrefectureOfficialBureaus();
 
     Object.values(state.prefecturesData).forEach(pref => {
         let prefCounties = Object.values(state.countyData).filter(c => c.prefId === pref.id);
@@ -154,8 +565,6 @@ export function initWorldData() {
         if (hasMine) pref.roster.push(...generateRoster(SpecialOfficialTemplates["矿局"]));
     });
 }
-
-// ── Establish new administrative level ────────────────────────────────────────
 
 export function establish(level) {
     let cell = state.countyData[state.selectedCellId];
@@ -192,8 +601,6 @@ export function establish(level) {
     }
     import('./ui.js').then(({ updateUI }) => updateUI());
 }
-
-// ── Merge / expand operations ──────────────────────────────────────────────────
 
 export function toggleMerge(level) {
     let btnId = 'btn-expand-' + (level === 'county' ? 'county' : level.substring(0, 4));
