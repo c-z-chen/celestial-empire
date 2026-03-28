@@ -6,10 +6,48 @@ let zoomBehavior;
 let countyData = {}, prefecturesData = {}, provincesData = {};
 let nextPrefId = 1, nextProvId = 1, capitalId = null;
 let mapViewMode = 'county', activeTab = 'county', selectedCellId = null, mergeMode = null;
+let capitalGovernorSelectedProvinces = [];
+let capitalGovernorRegions = [];
+let capitalGovernorNextId = 1;
 
 let geoFeatures = [];
 let pathGenerator;
 let neighborsMap = {};
+
+const CAPITAL_MAX_GOVERNORS = 3;
+const CAPITAL_REGION_COLORS = ["#9b59b6", "#16a085", "#d35400", "#2980b9", "#8e44ad", "#27ae60"];
+const CAPITAL_GOVERNOR_PAIR_ABBR = {
+    "云南|贵州": "云贵",
+    "广东|广西": "两广",
+    "江苏|江西": "两江",
+    "陕西|甘肃": "陕甘",
+    "湖南|湖北": "湖广",
+    "安徽|江苏": "江淮"
+};
+const CAPITAL_PROV_SHORT = {
+    "江苏": "江",
+    "江西": "赣",
+    "浙江": "浙",
+    "福建": "闽",
+    "广东": "粤",
+    "广西": "桂",
+    "云南": "云",
+    "贵州": "贵",
+    "陕西": "陕",
+    "甘肃": "甘",
+    "湖南": "湘",
+    "湖北": "鄂",
+    "河南": "豫",
+    "山东": "鲁",
+    "山西": "晋",
+    "安徽": "皖",
+    "四川": "川",
+    "盛京": "奉",
+    "直隶": "直",
+    "内蒙古": "蒙",
+    "新疆": "新",
+    "台湾": "台"
+};
 
 function renderCapitalOfficials() {
     const container = document.getElementById('capital-officials-list');
@@ -49,6 +87,154 @@ function renderCapitalOfficials() {
     }
 }
 
+function isCapitalTabActive() {
+    return activeTab === 'capital';
+}
+
+function getProvinceNameById(provId) {
+    if (provId === null || !provincesData[provId]) return "";
+    return provincesData[provId].name || "";
+}
+
+function getProvinceShortName(provName) {
+    return CAPITAL_PROV_SHORT[provName] || provName.replace(/省$/g, '').slice(0, 1);
+}
+
+function getCapitalSelectionIndex(provId) {
+    return capitalGovernorSelectedProvinces.indexOf(provId);
+}
+
+function getGovernorRegionByProvinceId(provId) {
+    if (provId === null || provId === undefined) return null;
+    return capitalGovernorRegions.find(r => (r.provIds || []).includes(provId)) || null;
+}
+
+function isProvinceOccupiedByGovernorRegion(provId) {
+    return getGovernorRegionByProvinceId(provId) !== null;
+}
+
+function buildGovernorAbbrByProvIds(provIds) {
+    const provNames = provIds
+        .map(id => getProvinceNameById(id))
+        .filter(Boolean);
+
+    if (provNames.length === 0) return '';
+
+    if (provNames.length === 1) {
+        return provNames[0].replace(/省$/g, '');
+    }
+
+    if (provNames.length === 2) {
+        const key = provNames.slice().sort((a, b) => a.localeCompare(b, 'zh-Hans-CN')).join('|');
+        if (CAPITAL_GOVERNOR_PAIR_ABBR[key]) return CAPITAL_GOVERNOR_PAIR_ABBR[key];
+    }
+
+    return provNames.map(getProvinceShortName).join('');
+}
+
+function refreshTerritoryPaint() {
+    d3.selectAll(".county")
+        .attr("fill", (d, i) => getTerritoryColor(i))
+        .attr("fill-opacity", (d, i) => getTerritoryOpacity(i));
+}
+
+function renderCapitalGovernorAssignments() {
+    const draftContainer = document.getElementById('capital-governor-titles');
+    const recordsContainer = document.getElementById('capital-governor-records');
+    const establishBtn = document.getElementById('btn-establish-governor-region');
+    if (!draftContainer || !recordsContainer) return;
+
+    const selectedProvNames = capitalGovernorSelectedProvinces.map(id => getProvinceNameById(id)).filter(Boolean);
+    if (capitalGovernorSelectedProvinces.length === 0) {
+        draftContainer.innerHTML = `<div class="gov-empty">点击左侧省份圈定辖区（1-3省可成总督辖区）</div>`;
+    } else {
+        const draftTitle = `${buildGovernorAbbrByProvIds(capitalGovernorSelectedProvinces)}总督`;
+        draftContainer.innerHTML = `
+            <div class="gov-item gov-item-draft">
+                <span class="gov-badge">拟</span>
+                <div class="gov-main">
+                    <div class="gov-title">${draftTitle}</div>
+                    <div class="gov-sub">拟辖：${selectedProvNames.join('、')} ｜ 共${capitalGovernorSelectedProvinces.length}省</div>
+                </div>
+            </div>
+        `;
+    }
+
+    if (establishBtn) {
+        establishBtn.disabled = !(capitalGovernorSelectedProvinces.length >= 1 && capitalGovernorSelectedProvinces.length <= CAPITAL_MAX_GOVERNORS);
+    }
+
+    if (capitalGovernorRegions.length === 0) {
+        recordsContainer.innerHTML = `<div class="gov-empty">尚未设立总督辖区</div>`;
+        return;
+    }
+
+    recordsContainer.innerHTML = capitalGovernorRegions.map((region, idx) => {
+        const provNames = (region.provIds || []).map(id => getProvinceNameById(id)).filter(Boolean);
+        return `
+            <div class="gov-item">
+                <span class="gov-badge" style="background:${region.color || '#f39c12'};">${idx + 1}</span>
+                <div class="gov-main">
+                    <div class="gov-title">${region.title}</div>
+                    <div class="gov-sub">辖：${provNames.join('、')} ｜ ${region.name || '待补缺'}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function establishCapitalGovernorRegion() {
+    if (capitalGovernorSelectedProvinces.length < 1 || capitalGovernorSelectedProvinces.length > CAPITAL_MAX_GOVERNORS) {
+        alert(`请选择1到${CAPITAL_MAX_GOVERNORS}省后再设立。`);
+        return;
+    }
+
+    const occupiedProvId = capitalGovernorSelectedProvinces.find(provId => isProvinceOccupiedByGovernorRegion(provId));
+    if (occupiedProvId !== undefined) {
+        alert(`${getProvinceNameById(occupiedProvId)}已归属其他总督辖区，不能重复使用。`);
+        return;
+    }
+
+    const color = CAPITAL_REGION_COLORS[(capitalGovernorNextId - 1) % CAPITAL_REGION_COLORS.length];
+    const title = `${buildGovernorAbbrByProvIds(capitalGovernorSelectedProvinces)}总督`;
+    capitalGovernorRegions.push({
+        id: capitalGovernorNextId++,
+        provIds: [...capitalGovernorSelectedProvinces],
+        title,
+        name: typeof NameGen !== 'undefined' ? NameGen.person() : '待补缺',
+        color
+    });
+
+    capitalGovernorSelectedProvinces = [];
+    renderCapitalGovernorAssignments();
+    refreshTerritoryPaint();
+    highlightSelection(selectedCellId);
+}
+
+function toggleCapitalGovernorProvince(provId) {
+    const provName = getProvinceNameById(provId);
+    if (!provName || provName.includes("直隶")) return;
+
+    const existedIdx = getCapitalSelectionIndex(provId);
+    if (existedIdx >= 0) {
+        capitalGovernorSelectedProvinces.splice(existedIdx, 1);
+    } else {
+        if (isProvinceOccupiedByGovernorRegion(provId)) {
+            alert(`${provName}已归属既有总督辖区，一省不能两用。`);
+            return;
+        }
+        if (capitalGovernorSelectedProvinces.length >= CAPITAL_MAX_GOVERNORS) {
+            alert(`总督辖区最多圈定${CAPITAL_MAX_GOVERNORS}省。`);
+            return;
+        }
+        capitalGovernorSelectedProvinces.push(provId);
+    }
+
+    renderCapitalGovernorAssignments();
+    refreshTerritoryPaint();
+    highlightSelection(selectedCellId);
+}
+
 function loadChinaMap() {
     d3.json("./maps/qing_1820_counties.json").then(geoData => {
         geoFeatures = geoData.features.filter(f => f.geometry);
@@ -78,6 +264,9 @@ function loadChinaMap() {
 function initWorldData() {
     countyData = {}; prefecturesData = {}; provincesData = {};
     nextPrefId = 1; nextProvId = 1; 
+    capitalGovernorSelectedProvinces = [];
+    capitalGovernorRegions = [];
+    capitalGovernorNextId = 1;
     if (typeof NameGen !== 'undefined' && NameGen.generatedNames) NameGen.generatedNames.clear();
 
     const coastalProvinces = ["江苏", "浙江", "福建", "广东", "山东", "直隶", "盛京", "台湾"];
@@ -98,7 +287,7 @@ function initWorldData() {
 
         if (!provNameToId[provName]) {
             provNameToId[provName] = nextProvId++;
-            let title = (provName.includes("直隶") || provName.includes("四川")) ? "总督" : "巡抚";
+            let title = (provName.includes("直隶")) ? "总督" : "巡抚";
             provincesData[provNameToId[provName]] = {
                 id: provNameToId[provName], name: provName,
                 official: typeof NameGen !== 'undefined' ? `${NameGen.person()} (${title})` : title,
@@ -338,6 +527,18 @@ function drawCapitals() {
 
 function getTerritoryColor(i) {
     let c = countyData[i];
+    if (isCapitalTabActive()) {
+        if (c.provId === null || !provincesData[c.provId]) return "#4b5563";
+
+        const provName = provincesData[c.provId].name || '';
+        if (provName.includes("直隶")) return "#F1C40F";
+
+        const region = getGovernorRegionByProvinceId(c.provId);
+        if (region) return region.color || "#9b59b6";
+
+        return getCapitalSelectionIndex(c.provId) >= 0 ? "#2f9e44" : "#7f8c8d";
+    }
+
     if (mapViewMode === 'province') return c.provId !== null ? provincesData[c.provId].color : (c.prefId !== null ? prefecturesData[c.prefId].color : "#34495e");
     if (mapViewMode === 'prefecture') return c.prefId !== null ? prefecturesData[c.prefId].color : "#34495e";
     return countyData[c.masterId].color;
@@ -345,29 +546,49 @@ function getTerritoryColor(i) {
 
 function getTerritoryOpacity(i) {
     let c = countyData[i];
+    if (isCapitalTabActive()) {
+        if (c.provId === null || !provincesData[c.provId]) return 0.2;
+        const provName = provincesData[c.provId].name || '';
+        if (provName.includes("直隶")) return 1.0;
+        if (isProvinceOccupiedByGovernorRegion(c.provId)) return 1.0;
+        return getCapitalSelectionIndex(c.provId) >= 0 ? 1.0 : 0.6;
+    }
+
     if (mapViewMode === 'province') return c.provId !== null ? 1.0 : (c.prefId !== null ? 0.35 : 0.05);
     if (mapViewMode === 'prefecture') return c.prefId !== null ? 1.0 : 0.15;
     return 1.0;
 }
 
-function setMapView(mode) {
+function setMapView(mode, syncTab = true) {
     mapViewMode = mode;
     document.querySelectorAll('.map-toggles button').forEach(btn => btn.classList.remove('active'));
     let activeBtn = document.querySelector(`.map-toggles button[data-view="${mode}"]`);
     if(activeBtn) activeBtn.classList.add('active');
     
-    d3.selectAll(".county").attr("fill", (d, i) => getTerritoryColor(i)).attr("fill-opacity", (d, i) => getTerritoryOpacity(i));
+    refreshTerritoryPaint();
     drawCapitals(); 
     if (selectedCellId !== null) highlightSelection(selectedCellId);
 
-    const tabMap = { 'county': 'county', 'prefecture': 'pref', 'province': 'prov' };
-    if (activeTab !== tabMap[mode]) {
-        switchTab(tabMap[mode]);
+    if (syncTab) {
+        const tabMap = { 'county': 'county', 'prefecture': 'pref', 'province': 'prov' };
+        if (activeTab !== tabMap[mode]) {
+            switchTab(tabMap[mode]);
+        }
     }
 }
 
 function highlightSelection(i) {
     d3.selectAll(".county").classed("selected-group", false);
+
+    if (isCapitalTabActive()) {
+        Object.values(countyData).forEach(c => {
+            if (getCapitalSelectionIndex(c.provId) >= 0) {
+                d3.select("#cell-" + c.id).classed("selected-group", true);
+            }
+        });
+        return;
+    }
+
     let target = countyData[i];
     Object.values(countyData).forEach(c => {
         if ((mapViewMode==='county' && c.masterId===target.masterId) ||
@@ -388,13 +609,36 @@ function switchTab(tabId) {
     
     if (mergeMode) toggleMerge(mergeMode);
 
+    if (tabId === 'capital') {
+        if (mapViewMode !== 'province') {
+            setMapView('province', false);
+        } else {
+            refreshTerritoryPaint();
+            drawCapitals();
+            if (selectedCellId !== null) highlightSelection(selectedCellId);
+        }
+        renderCapitalGovernorAssignments();
+        return;
+    }
+
     const viewMap = { 'county': 'county', 'pref': 'prefecture', 'prov': 'province' };
     if (viewMap[tabId] && mapViewMode !== viewMap[tabId]) {
         setMapView(viewMap[tabId]);
+    } else {
+        refreshTerritoryPaint();
+        drawCapitals();
+        if (selectedCellId !== null) highlightSelection(selectedCellId);
     }
 }
 
 function handleRegionClick(i) {
+    if (isCapitalTabActive()) {
+        selectedCellId = i;
+        const cell = countyData[i];
+        if (cell && cell.provId !== null) toggleCapitalGovernorProvince(cell.provId);
+        return;
+    }
+
     if (mergeMode !== null) attemptMerge(selectedCellId, i, mergeMode);
     else { selectedCellId = i; updateUI(); highlightSelection(selectedCellId); }
 }
@@ -612,13 +856,33 @@ function attemptMerge(absId, tgtId, level) {
 }
 
 const SaveManager = {
-    collectData() { return { points, countyData, prefecturesData, provincesData, nextPrefId, nextProvId, capitalId, islandPoly }; },
+    collectData() {
+        return {
+            countyData,
+            prefecturesData,
+            provincesData,
+            nextPrefId,
+            nextProvId,
+            capitalId,
+            capitalGovernorSelectedProvinces,
+            capitalGovernorRegions,
+            capitalGovernorNextId
+        };
+    },
     applyData(d) {
-        points=d.points; countyData=d.countyData; prefecturesData=d.prefecturesData; provincesData=d.provincesData; nextPrefId=d.nextPrefId; nextProvId=d.nextProvId; capitalId=d.capitalId;
-        if(d.islandPoly) islandPoly = d.islandPoly; 
+        countyData = d.countyData;
+        prefecturesData = d.prefecturesData;
+        provincesData = d.provincesData;
+        nextPrefId = d.nextPrefId;
+        nextProvId = d.nextProvId;
+        capitalId = d.capitalId;
+        capitalGovernorSelectedProvinces = Array.isArray(d.capitalGovernorSelectedProvinces) ? d.capitalGovernorSelectedProvinces : [];
+        capitalGovernorRegions = Array.isArray(d.capitalGovernorRegions) ? d.capitalGovernorRegions : [];
+        capitalGovernorNextId = d.capitalGovernorNextId || (capitalGovernorRegions.length + 1);
         selectedCellId=null; mergeMode=null; 
         if(typeof NameGen !== 'undefined') NameGen.generatedNames.clear();
         renderMap();
+        renderCapitalGovernorAssignments();
     },
     saveToLocal() { localStorage.setItem("adminManagerSave", JSON.stringify(this.collectData())); alert("已存入浏览器缓存！"); },
     loadFromLocal() { let s = localStorage.getItem("adminManagerSave"); if(s){ this.applyData(JSON.parse(s)); alert("读取缓存成功！"); } else { alert("没有找到缓存记录。"); } },
@@ -645,6 +909,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('btn-expand-county')?.addEventListener('click', () => toggleMerge('county'));
     document.getElementById('btn-expand-pref')?.addEventListener('click', () => toggleMerge('prefecture'));
     document.getElementById('btn-expand-prov')?.addEventListener('click', () => toggleMerge('province'));
+    document.getElementById('btn-establish-governor-region')?.addEventListener('click', () => establishCapitalGovernorRegion());
 
     document.getElementById('btn-save-local')?.addEventListener('click', () => SaveManager.saveToLocal());
     document.getElementById('btn-load-local')?.addEventListener('click', () => SaveManager.loadFromLocal());
@@ -659,5 +924,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('inp-county-gov')?.addEventListener('change', (e) => { if(selectedCellId!==null) countyData[countyData[selectedCellId].masterId].official = e.target.value; });
     
     renderCapitalOfficials();
+    renderCapitalGovernorAssignments();
     loadChinaMap();
 });

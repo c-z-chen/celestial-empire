@@ -345,9 +345,9 @@ input:disabled {
     min-width: 60px;
 }
 
-/* 地方官僚面板样式 */
 .local-officials-panel {
     margin-top: 15px;
+    margin-bottom: 15px;
     background: #2c3e50;
     border: 1px solid #7f8c8d;
     border-radius: 4px;
@@ -408,4 +408,65 @@ input:disabled {
     padding: 1px 4px;
     border-radius: 3px;
     margin-right: 5px;
+}
+
+#capital-governor-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#capital-governor-records {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.gov-empty {
+    color: #95a5a6;
+    font-size: 0.9em;
+    text-align: center;
+    padding: 8px;
+    border: 1px dashed #7f8c8d;
+    border-radius: 4px;
+}
+
+.gov-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #1a252f;
+    border: 1px solid #34495e;
+    border-radius: 4px;
+    padding: 8px 10px;
+}
+
+.gov-badge {
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    border-radius: 50%;
+    background: #f39c12;
+    color: #fff;
+    text-align: center;
+    font-size: 0.8em;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.gov-main {
+    min-width: 0;
+}
+
+.gov-title {
+    color: #f4ecd8;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.gov-sub {
+    color: #95a5a6;
+    font-size: 0.82em;
+    margin-top: 2px;
 }
