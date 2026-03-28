@@ -1,4 +1,6 @@
-const width = 1000, height = 700; // 稍微改宽一点以适应真实中国地图
+import { officialData, NameGen, EconomyLvls, BaseIndustries, CoastalSpecialties, BureauMap, CapitalVicinityIndustries } from './data.js'
+
+const width = 1000, height = 700;
 let currentTransform = d3.zoomIdentity; 
 let zoomBehavior;
 let countyData = {}, prefecturesData = {}, provincesData = {};
@@ -8,6 +10,41 @@ let mapViewMode = 'county', activeTab = 'county', selectedCellId = null, mergeMo
 let geoFeatures = [];
 let pathGenerator;
 let neighborsMap = {};
+
+function renderCapitalOfficials() {
+    const container = document.getElementById('capital-officials-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    for (const [rank, titles] of Object.entries(officialData)) {
+        const rankGroup = document.createElement('div');
+        rankGroup.className = 'rank-group';
+        
+        const rankTitle = document.createElement('div');
+        rankTitle.className = 'rank-title';
+        rankTitle.innerText = rank;
+        rankGroup.appendChild(rankTitle);
+
+        const rankList = document.createElement('div');
+        rankList.className = 'rank-list';
+
+        titles.forEach(title => {
+            const officialItem = document.createElement('div');
+            officialItem.className = 'official-item';
+            
+            const officialName = typeof NameGen !== 'undefined' ? NameGen.person() : "待补缺";
+            
+            officialItem.innerHTML = `
+                <span class="official-title">${title}</span>
+                <span class="official-name">${officialName}</span>
+            `;
+            rankList.appendChild(officialItem);
+        });
+
+        rankGroup.appendChild(rankList);
+        container.appendChild(rankGroup);
+    }
+}
 
 function loadChinaMap() {
     d3.json("./maps/qing_1820_counties.json").then(geoData => {
@@ -108,7 +145,6 @@ function initWorldData() {
             const ecoIdx = density > 250 ? 4 : (density > 150 ? 3 : (density > 70 ? 2 : (density > 30 ? 1 : 0)));
             economyStr = EconomyLvls[ecoIdx];
 
-            // 产业分配逻辑
             if (isCoastal) {
                 industryStr = CoastalSpecialties[Math.floor(Math.random() * CoastalSpecialties.length)];
             } else {
@@ -265,7 +301,7 @@ function drawCapitals() {
     if (capitalId !== null && countyData[capitalId]) {
         let cp = countyData[capitalId].center;
         mapGroup.append("polygon")
-            .datum({x: cp[0], y: cp[1]}) // 绑定坐标数据
+            .datum({x: cp[0], y: cp[1]})
             .attr("points", "0,-8 2,-2 8,-2 3,2 5,8 0,5 -5,8 -3,2 -8,-2 -2,-2")
             .attr("transform", `translate(${cp[0]}, ${cp[1]})`)
             .attr("fill", "gold")
@@ -328,7 +364,7 @@ function switchTab(tabId) {
     if (mergeMode) toggleMerge(mergeMode);
 
     const viewMap = { 'county': 'county', 'pref': 'prefecture', 'prov': 'province' };
-    if (mapViewMode !== viewMap[tabId]) {
+    if (viewMap[tabId] && mapViewMode !== viewMap[tabId]) {
         setMapView(viewMap[tabId]);
     }
 }
@@ -550,6 +586,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById('inp-county-name')?.addEventListener('change', (e) => { if(selectedCellId!==null) countyData[countyData[selectedCellId].masterId].name = e.target.value; });
     document.getElementById('inp-county-gov')?.addEventListener('change', (e) => { if(selectedCellId!==null) countyData[countyData[selectedCellId].masterId].official = e.target.value; });
-
+    
+    renderCapitalOfficials();
     loadChinaMap();
 });
