@@ -1,7 +1,5 @@
 export const EconomyLvls = ["凋敝", "贫困", "平平", "富庶", "繁华"];
 export const MilitaryEconomyLvls = ["苦寒戍边", "军屯自给", "粮草充足", "军备森严"];
-
-export const BaseIndustries = ["农业", "商业", "矿业", "林木", "丝织", "茶业", "瓷器", "药材", "畜牧"];
 export const CoastalSpecialties = ["渔业", "盐业", "海贸", "造船", "采珠"];
 export const CapitalVicinityIndustries = ["御窑织造", "百业行会", "皇庄贡品", "京通仓储"];
 
@@ -16,7 +14,6 @@ export const BureauMap = {
     "瓷器": "御窑厂"
 };
 
-// data.js
 export const officialData = {
     "正一品": [
         { title: "太师", quota: 1 },
@@ -357,4 +354,33 @@ export const NameGen = {
         }
         return "无名氏" + Math.floor(Math.random()*100);
     }
+};
+
+export const SpecialOfficialTemplates = {
+    "顺天府": [
+        { title: "顺天府丞", rank: "正四品", quota: 1 },
+        { title: "顺天府治中", rank: "正五品", quota: 1 },
+        { title: "顺天府通判", rank: "正六品", quota: 2 }
+    ],
+    "奉天府": [
+        { title: "奉天府丞", rank: "正四品", quota: 1 },
+        { title: "奉天府治中", rank: "正五品", quota: 1 },
+        { title: "奉天府通判", rank: "正六品", quota: 2 }
+    ],
+    "盐务": [
+        { title: "都转盐运使司盐运使", rank: "从三品", quota: 1 },
+        { title: "盐运司副使", rank: "从五品", quota: 1 },
+        { title: "盐课提举司提举", rank: "从五品", quota: 1 },
+        { title: "盐运司经历", rank: "从七品", quota: 1 },
+        { title: "盐课司大使", rank: "正八品", quota: 2 },
+        { title: "盐引批验所大使", rank: "正八品", quota: 1 }
+    ],
+    "织造": [
+        { title: "织造监督", rank: "正五品", quota: 1 },
+        { title: "织造局库使", rank: "未入流", quota: 2 }
+    ],
+    "矿局": [
+        { title: "矿务监督", rank: "正五品", quota: 1 },
+        { title: "矿课大使", rank: "未入流", quota: 2 }
+    ]
 };

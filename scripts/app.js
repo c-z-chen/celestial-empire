@@ -1,4 +1,4 @@
-import { officialData, NameGen, EconomyLvls, BaseIndustries, CoastalSpecialties, BureauMap, CapitalVicinityIndustries, LocalOfficialTemplates } from './data.js'
+import { officialData, LocalOfficialTemplates, SpecialOfficialTemplates, NameGen, EconomyLvls, BaseIndustries, CoastalSpecialties, BureauMap, CapitalVicinityIndustries } from './data.js';
 
 const width = 1000, height = 700;
 let currentTransform = d3.zoomIdentity; 
@@ -16,7 +16,7 @@ function renderCapitalOfficials() {
     if (!container) return;
     container.innerHTML = '';
 
-    for (const [rank, jobs] of Object.entries(officialData)) { // jobs 现在是对象数组
+    for (const [rank, jobs] of Object.entries(officialData)) {
         const rankGroup = document.createElement('div');
         rankGroup.className = 'rank-group';
         
@@ -28,8 +28,6 @@ function renderCapitalOfficials() {
         const rankList = document.createElement('div');
         rankList.className = 'rank-list';
 
-        // 统一复用我们刚才写的逻辑，把 jobs 当作一个 roster 渲染成 HTML 塞进去
-        // 但因为京官这里是两列网格布局，所以稍微调整一下 DOM 生成：
         jobs.forEach(job => {
             const officialItem = document.createElement('div');
             officialItem.className = 'official-item';
@@ -57,7 +55,6 @@ function loadChinaMap() {
 
         console.log("成功读取地图区块数量：", geoFeatures.length);
 
-        // fitSize 会自动根据 [116, 39] 这种数字计算最合适的缩放
         const projection = d3.geoMercator().fitSize([width, height], geoData);
         pathGenerator = d3.geoPath().projection(projection);
 
@@ -87,7 +84,7 @@ function initWorldData() {
     
     // 1820年人口密度基数 (人/平方公里)
     const popDensityMap = {
-        "直隶": 80, "江苏": 340, "浙江": 250, "安徽": 230, "山东": 200, "江西": 150, "福建": 120, "广东": 100, "河南": 130, "湖北": 170, "湖南": 100, "四川": 60, "山西": 70, "陕西": 70, "广西": 60, "云南": 15, "贵州": 40, "甘肃": 25, "盛京": 20, "内蒙古": 4, "新疆": 1, "乌里雅苏台": 1,
+        "直隶": 80, "江苏": 340, "浙江": 250, "安徽": 230, "山东": 200, "江西": 150, "福建": 100, "广东": 100, "河南": 130, "湖北": 170, "湖南": 100, "四川": 60, "山西": 70, "陕西": 70, "广西": 60, "云南": 15, "贵州": 40, "甘肃": 25, "盛京": 20, "内蒙古": 4, "新疆": 1, "乌里雅苏台": 1,
     };
 
     let provNameToId = {};
@@ -159,8 +156,9 @@ function initWorldData() {
                     ["丝织", "茶业", "瓷器", "商业"][Math.floor(Math.random()*4)] : 
                     ["农业", "林木", "药材", "畜牧", "矿业"][Math.floor(Math.random()*5)];
             }
-
-            if (ecoIdx >= 3 && BureauMap[industryStr] && Math.random() > 0.5) {
+            
+            let baseChance = (ecoIdx === 4) ? 0.30 : 0.1;
+            if (ecoIdx >= 3 && BureauMap[industryStr] && Math.random() < baseChance) {
                 isOfficialRun = true;
                 economyStr = "官营·" + economyStr;
             }
@@ -173,11 +171,6 @@ function initWorldData() {
         }
 
         let countyOfficial = isCapital ? "顺天府尹" : (typeof NameGen !== 'undefined' ? `${NameGen.person()} (知县)` : "知县");
-        
-        if (isOfficialRun) {
-            const bureau = BureauMap[industryStr];
-            countyOfficial += ` | 兼领${bureau}`;
-        }
 
         countyData[i] = {
             id: i, masterId: i, prefId: currentPrefId, provId: currentProvId,
@@ -192,6 +185,30 @@ function initWorldData() {
             isOfficialRun: isOfficialRun,
             roster: generateRoster(LocalOfficialTemplates.county)
         };
+    });
+    Object.values(prefecturesData).forEach(pref => {
+        let prefCounties = Object.values(countyData).filter(c => c.prefId === pref.id);
+
+        if (prefCounties.some(c => c.isCapital)) {
+            pref.roster = pref.roster.filter(o => o.title !== "通判" && o.title !== "同知");
+            pref.roster.unshift(...generateRoster(SpecialOfficialTemplates["顺天府"]));
+        }
+
+        else if (pref.name.includes("奉天")) {
+            pref.roster = pref.roster.filter(o => o.title !== "通判" && o.title !== "同知");
+            pref.roster.unshift(...generateRoster(SpecialOfficialTemplates["奉天府"]));
+        }
+
+        let hasSalt = false, hasWeaving = false, hasMine = false;
+        prefCounties.forEach(c => {
+            if (c.industry && c.industry.includes("盐")) hasSalt = true;
+            if (c.isOfficialRun && c.industry === "丝织") hasWeaving = true;
+            if (c.isOfficialRun && c.industry === "矿业") hasMine = true;
+        });
+
+        if (hasSalt) pref.roster.push(...generateRoster(SpecialOfficialTemplates["盐务"]));
+        if (hasWeaving) pref.roster.push(...generateRoster(SpecialOfficialTemplates["织造"]));
+        if (hasMine) pref.roster.push(...generateRoster(SpecialOfficialTemplates["矿局"]));
     });
 }
 
@@ -484,12 +501,10 @@ function updateUI() {
 
         if (master.roster) renderRosterList('county-officials-list', master.roster);
     
-        // 渲染府级名单
         if (cell.prefId !== null && prefecturesData[cell.prefId].roster) {
             renderRosterList('pref-officials-list', prefecturesData[cell.prefId].roster);
         }
         
-        // 渲染省级名单
         if (cell.provId !== null && provincesData[cell.provId].roster) {
             renderRosterList('prov-officials-list', provincesData[cell.provId].roster);
         }
@@ -516,7 +531,6 @@ function renderRosterList(containerId, rosterData) {
     if (!container) return;
     
     container.innerHTML = rosterData.map(o => {
-        // 如果编制大于2人，就不把名字全列出来，避免界面撑爆
         let nameDisplay = "";
         if (o.quota > 2) {
             nameDisplay = `<span class="quota-tag">编制${o.quota}人</span> ${o.names[0]}, ${o.names[1]} 等`;
