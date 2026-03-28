@@ -1,6 +1,7 @@
 import {
     EconomyLvls, CapitalVicinityIndustries, BureauMap,
-    LocalOfficialTemplates, SpecialOfficialTemplates
+    LocalOfficialTemplates, SpecialOfficialTemplates,
+    ecoLvlMap, normalizeEconomy
 } from './constants.js';
 import { NameGen } from './nameGen.js';
 import { state } from './state.js';
@@ -160,16 +161,7 @@ function calibratePrefectureIndustries() {
     });
 }
 
-function assignPrefectureOfficialBureaus() {
-    const ecoLvlMap = { "繁华": 5, "富庶": 4, "平平": 3, "贫困": 2, "凋敝": 1, "天子脚下": 5, "京畿重地": 4 };
-    const normalizeEconomy = (economy = "") => {
-        let text = economy;
-        text = text.replace("官营·", "");
-        text = text.replace("（官营）", "");
-        return text;
-    };
-
-    const getPrefEconomyStats = (masters) => {
+function assignPrefectureOfficialBureaus() {    const getPrefEconomyStats = (masters) => {
         const economicMasters = masters.filter(m => !m.isCapital && !m.isCapitalVicinity);
         if (!economicMasters.length) return { avgEco: 0, maxEco: 0, richCount: 0 };
         const ecoScores = economicMasters.map(m => ecoLvlMap[normalizeEconomy(m.economy)] || 0);
