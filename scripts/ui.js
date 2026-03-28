@@ -1,4 +1,4 @@
-import { BureauMap } from './constants.js';
+import { BureauMap, ecoLvlMap, normalizeEconomy } from './constants.js';
 import { state, isCapitalTabActive } from './state.js';
 import { renderRosterList, renderCapitalGovernorAssignments, toggleCapitalGovernorProvince } from './officials.js';
 import { setMapView, refreshTerritoryPaint, drawCapitals, highlightSelection } from './map.js';
@@ -7,12 +7,8 @@ import { toggleMerge, attemptMerge } from './territory.js';
 function aggregateRegionData(regionCounties) {
     let totalPop = 0, totalArea = 0, militaryCount = 0, indCounts = {};
     let officialIndCounts = {};
-    const ecoLvlMap = { "繁华": 5, "富庶": 4, "平平": 3, "贫困": 2, "凋敝": 1, "天子脚下": 5, "京畿重地": 4 };
-    const normalizeEconomy = (economy = "") => economy.replace("官营·", "").replace("（官营）", "");
 
     let ecoScores = [];
-    let geoTotal = 0, geoCount = 0;
-    let coastalCount = 0, frontierCount = 0;
     let uniqueMasters = new Set();
 
     regionCounties.forEach(c => {
@@ -31,13 +27,6 @@ function aggregateRegionData(regionCounties) {
         if (!m.isCapital && !m.isCapitalVicinity) {
             ecoScores.push(ecoLvlMap[normalizeEconomy(m.economy)] || 0);
         }
-        
-        if (m.geoProfile) {
-            geoTotal += m.geoProfile.geoScore;
-            geoCount++;
-            if (m.isCoastal) coastalCount++;
-            if (m.geoProfile.frontierPenalty > 0.3) frontierCount++;
-        }
     });
 
     let sortedInds = Object.keys(indCounts).sort((a, b) => indCounts[b] - indCounts[a]);
@@ -46,20 +35,15 @@ function aggregateRegionData(regionCounties) {
     const maxEco = ecoScores.length ? Math.max(...ecoScores) : 0;
     const richCount = ecoScores.filter(s => s >= 4).length;
     const hasValidOfficialBureau = Boolean(sortedOfficialInds[0]) && avgEco >= 3.35 && maxEco >= 4 && richCount >= 2;
-    const avgGeoScore = geoCount ? (geoTotal / geoCount).toFixed(3) : 0;
     
     return { 
         totalPop, totalArea, militaryCount, topInd: sortedInds[0], secondInd: sortedInds[1],
         officialTopInd: sortedOfficialInds[0],
-        hasValidOfficialBureau,
-        avgGeoScore, coastalCount, frontierCount
+        hasValidOfficialBureau
     };
 }
 
 function auditPrefectureBureaus() {
-    const ecoLvlMap = { "繁华": 5, "富庶": 4, "平平": 3, "贫困": 2, "凋敝": 1, "天子脚下": 5, "京畿重地": 4 };
-    const normalizeEconomy = (economy = "") => economy.replace("官营·", "").replace("（官营）", "");
-
     const anomalies = [];
     Object.values(state.prefecturesData).forEach(pref => {
         const prefCounties = Object.values(state.countyData).filter(c => c.prefId === pref.id);

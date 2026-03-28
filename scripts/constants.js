@@ -32,6 +32,8 @@ export const SIM_CONFIG = {
 };
 
 export const EconomyLvls = ["凋敝", "贫困", "平平", "富庶", "繁华"];
+export const ecoLvlMap = { "繁华": 5, "富庶": 4, "平平": 3, "贫困": 2, "凋敝": 1, "天子脚下": 5, "京畿重地": 4 };
+export const normalizeEconomy = (economy = "") => economy.replace("官营·", "").replace("（官营）", "");
 export const MilitaryEconomyLvls = ["苦寒戍边", "军屯自给", "粮草充足", "军备森严"];
 export const CapitalVicinityIndustries = ["御窑织造", "百业行会", "皇庄贡品", "京通仓储"];
 
