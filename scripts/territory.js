@@ -16,9 +16,30 @@ function clamp01(value) {
     return Math.max(0, Math.min(1, value));
 }
 
+function clampRange(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+const EARTH_RADIUS_KM = 6371;
+const QING_PER_SQKM = 15;
+
+const PREFECTURE_AREA_TARGETS = [
+    {
+        label: "台湾府",
+        targetSqKm: 35900,
+        match: ({ simProvName, prefName }) => simProvName === "台湾" || prefName.includes("台湾")
+    },
+    {
+        label: "琼州府",
+        targetSqKm: 34300,
+        match: ({ prefName }) => prefName.includes("琼州")
+    }
+];
+
 const YANGTZE_PROVINCES = new Set(["江苏", "安徽", "湖北", "湖南", "江西", "浙江", "四川"]);
 const NORTH_DRY_PROVINCES = new Set(["直隶", "山东", "山西", "河南", "陕西", "甘肃"]);
-const FRONTIER_PROVINCES = new Set(["新疆", "内蒙古", "乌里雅苏台", "盛京", "云南", "贵州", "广西"]);
+const FRONTIER_PROVINCES = new Set(["新疆", "内蒙古", "乌里雅苏台", "盛京"]);
+const SOUTH_FRONTIER_PROVINCES = new Set(["云南", "贵州", "广西"]);
 const COASTAL_EDGE_MODE = {
     "直隶": "east",
     "山东": "east",
@@ -48,6 +69,50 @@ function getCountySimRegionName(props) {
     );
 
     return isTaiwanInFujian ? "台湾" : provName;
+}
+
+function getPrefectureAreaKey(props) {
+    const simProvName = getCountySimRegionName(props);
+    const prefName = props.LEV2_CH || "未知府州";
+    return `${simProvName}::${prefName}`;
+}
+
+function buildPrefectureAreaCalibration(features) {
+    const rawPrefSqKm = {};
+    const prefMeta = {};
+
+    features.forEach(f => {
+        const props = f.properties || {};
+        const key = getPrefectureAreaKey(props);
+        const sqKm = d3.geoArea(f) * EARTH_RADIUS_KM * EARTH_RADIUS_KM;
+        rawPrefSqKm[key] = (rawPrefSqKm[key] || 0) + sqKm;
+        if (!prefMeta[key]) {
+            prefMeta[key] = {
+                simProvName: getCountySimRegionName(props),
+                prefName: props.LEV2_CH || "未知府州"
+            };
+        }
+    });
+
+    const prefScaleMap = {};
+    Object.keys(rawPrefSqKm).forEach(key => {
+        const meta = prefMeta[key];
+        const target = PREFECTURE_AREA_TARGETS.find(t => t.match(meta));
+        if (!target) {
+            prefScaleMap[key] = 1;
+            return;
+        }
+
+        const rawSqKm = rawPrefSqKm[key];
+        if (!rawSqKm || rawSqKm <= 0) {
+            prefScaleMap[key] = 1;
+            return;
+        }
+
+        prefScaleMap[key] = clampRange(target.targetSqKm / rawSqKm, 0.55, 1.75);
+    });
+
+    return prefScaleMap;
 }
 
 function buildProvinceGeoBounds(features) {
@@ -92,7 +157,8 @@ function getCountyZoneFlags(provName) {
     return {
         isYangtze: YANGTZE_PROVINCES.has(provName),
         isNorthDry: NORTH_DRY_PROVINCES.has(provName),
-        isFrontier: FRONTIER_PROVINCES.has(provName)
+        isFrontier: FRONTIER_PROVINCES.has(provName),
+        isSouthFrontier: SOUTH_FRONTIER_PROVINCES.has(provName)
     };
 }
 
@@ -125,6 +191,7 @@ function calibratePrefectureIndustries() {
             if (m.zoneFlags?.isYangtze) yangtzeCnt++;
             if (m.zoneFlags?.isNorthDry) northDryCnt++;
             if (m.zoneFlags?.isFrontier) frontierCnt++;
+            if (m.zoneFlags?.isSouthFrontier) frontierCnt++;
             if (m.simProvName === "台湾") taiwanCnt++;
             indCount[m.industry] = (indCount[m.industry] || 0) + 1;
         });
@@ -227,9 +294,9 @@ function getProvinceBaseProfile(provName) {
     const profileMap = {
         "直隶":        { fertility: 0.74, riverAccess: 0.64, oceanAccess: 0.20, tradeAccess: 0.84, resourceScore: 0.36, frontierPenalty: 0.10, densityBase: 70 }, // 约 20,000,000 人
         "江苏":        { fertility: 0.92, riverAccess: 0.90, oceanAccess: 0.42, tradeAccess: 0.92, resourceScore: 0.38, frontierPenalty: 0.00, densityBase: 350 }, // 约 32,000,000 人
-        "浙江":        { fertility: 0.82, riverAccess: 0.78, oceanAccess: 0.48, tradeAccess: 0.88, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 190 }, // 约 27,000,000 人
-        "安徽":        { fertility: 0.84, riverAccess: 0.82, oceanAccess: 0.02, tradeAccess: 0.64, resourceScore: 0.34, frontierPenalty: 0.00, densityBase: 140 }, // 约 34,000,000 人
-        "山东":        { fertility: 0.76, riverAccess: 0.56, oceanAccess: 0.40, tradeAccess: 0.70, resourceScore: 0.40, frontierPenalty: 0.00, densityBase: 125 }, // 约 30,000,000 人
+        "浙江":        { fertility: 0.90, riverAccess: 0.80, oceanAccess: 0.48, tradeAccess: 0.88, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 300 }, // 约 27,000,000 人
+        "安徽":        { fertility: 0.84, riverAccess: 0.82, oceanAccess: 0.02, tradeAccess: 0.64, resourceScore: 0.34, frontierPenalty: 0.00, densityBase: 300 }, // 约 34,000,000 人
+        "山东":        { fertility: 0.76, riverAccess: 0.56, oceanAccess: 0.40, tradeAccess: 0.70, resourceScore: 0.40, frontierPenalty: 0.00, densityBase: 300 }, // 约 30,000,000 人
         "江西":        { fertility: 0.80, riverAccess: 0.76, oceanAccess: 0.00, tradeAccess: 0.58, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 115 }, // 约 23,000,000 人
         "福建":        { fertility: 0.66, riverAccess: 0.52, oceanAccess: 0.58, tradeAccess: 0.80, resourceScore: 0.34, frontierPenalty: 0.00, densityBase: 95 }, // 约 17,000,000 人
         "广东":        { fertility: 0.76, riverAccess: 0.74, oceanAccess: 0.66, tradeAccess: 0.90, resourceScore: 0.36, frontierPenalty: 0.02, densityBase: 120 }, // 约 21,000,000 人
@@ -240,9 +307,9 @@ function getProvinceBaseProfile(provName) {
         "山西":        { fertility: 0.42, riverAccess: 0.30, oceanAccess: 0.00, tradeAccess: 0.50, resourceScore: 0.62, frontierPenalty: 0.06, densityBase: 150 }, // 约 14,000,000 人
         "陕西":        { fertility: 0.48, riverAccess: 0.36, oceanAccess: 0.00, tradeAccess: 0.46, resourceScore: 0.58, frontierPenalty: 0.10, densityBase: 100 }, // 约 10,000,000 人
         "广西":        { fertility: 0.70, riverAccess: 0.64, oceanAccess: 0.00, tradeAccess: 0.48, resourceScore: 0.34, frontierPenalty: 0.10, densityBase: 56 }, // 约 7,500,000 人
-        "云南":        { fertility: 0.46, riverAccess: 0.48, oceanAccess: 0.00, tradeAccess: 0.34, resourceScore: 0.54, frontierPenalty: 0.16, densityBase: 16 }, // 约 5,000,000 人
-        "贵州":        { fertility: 0.42, riverAccess: 0.44, oceanAccess: 0.00, tradeAccess: 0.32, resourceScore: 0.52, frontierPenalty: 0.14, densityBase: 26 }, // 5,348,667 人
-        "甘肃":        { fertility: 0.22, riverAccess: 0.18, oceanAccess: 0.00, tradeAccess: 0.36, resourceScore: 0.56, frontierPenalty: 0.34, densityBase: 20 }, // 约 15,000,000 人
+        "云南":        { fertility: 0.46, riverAccess: 0.48, oceanAccess: 0.00, tradeAccess: 0.34, resourceScore: 0.54, frontierPenalty: 0.16, densityBase: 30 }, // 约 5,000,000 人
+        "贵州":        { fertility: 0.46, riverAccess: 0.44, oceanAccess: 0.00, tradeAccess: 0.32, resourceScore: 0.52, frontierPenalty: 0.14, densityBase: 70 }, // 5,348,667 人
+        "甘肃":        { fertility: 0.22, riverAccess: 0.18, oceanAccess: 0.00, tradeAccess: 0.36, resourceScore: 0.56, frontierPenalty: 0.34, densityBase: 70 }, // 约 15,000,000 人
         "盛京":        { fertility: 0.52, riverAccess: 0.40, oceanAccess: 0.28, tradeAccess: 0.44, resourceScore: 0.44, frontierPenalty: 0.22, densityBase: 18 },
         "内蒙古":      { fertility: 0.08, riverAccess: 0.10, oceanAccess: 0.00, tradeAccess: 0.24, resourceScore: 0.50, frontierPenalty: 0.50, densityBase: 6 },
         "新疆":        { fertility: 0.06, riverAccess: 0.08, oceanAccess: 0.00, tradeAccess: 0.24, resourceScore: 0.54, frontierPenalty: 0.58, densityBase: 2 },
@@ -284,6 +351,11 @@ function computeCountyGeoProfile({ provName, isCapital, isCapitalVicinity, isCoa
         resourceScore += 0.10;
         tradeAccess -= 0.05;
         frontierPenalty += 0.10;
+    }
+    if (zoneFlags.isSouthFrontier) {
+        resourceScore += 0.08;
+        tradeAccess -= 0.04;
+        frontierPenalty += 0.08;
     }
 
     if (isCoastal) {
@@ -340,6 +412,12 @@ function pickIndustry({ geoProfile, provName, isCapital, isCapitalVicinity, isCo
         for (let i = 0; i < weight; i++) pool.push(industry);
     };
 
+    if (provName === "广东" && isCoastal) {
+        pushWeighted("海贸", 15); 
+        pushWeighted("造船", 5);
+        pushWeighted("采珠", 3);
+    }
+
     if (isCoastal || geoProfile.oceanAccess > 0.55) {
         pushWeighted("海贸", 5);
         pushWeighted("盐业", 4);
@@ -372,6 +450,13 @@ function pickIndustry({ geoProfile, provName, isCapital, isCapitalVicinity, isCo
         pushWeighted("矿业", 4);
         pushWeighted("药材", 3);
         pushWeighted("林业", 2);
+    }
+
+    if (zoneFlags.isSouthFrontier || geoProfile.frontierPenalty > 0.38) {
+        pushWeighted("农业", 4);
+        pushWeighted("矿业", 3);
+        pushWeighted("药材", 3);
+        pushWeighted("林业", 3);
     }
 
     const provinceSpecialties = {
@@ -418,6 +503,7 @@ export function initWorldData() {
     NameGen.generatedNames.clear();
 
     const provinceBounds = buildProvinceGeoBounds(state.geoFeatures);
+    const prefectureAreaScale = buildPrefectureAreaCalibration(state.geoFeatures);
 
     let provNameToId = {};
     let prefNameToId = {};
@@ -455,9 +541,13 @@ export function initWorldData() {
         }
         const currentPrefId = prefNameToId[prefKey];
 
-        // 1 平方公里 = 15 顷
-        const sqKm = d3.geoArea(f) * 6371 * 6371;
-        const landArea = Math.max(1, Math.round(sqKm * 15));
+        const rawSqKm = d3.geoArea(f) * EARTH_RADIUS_KM * EARTH_RADIUS_KM;
+        const prefAreaKey = getPrefectureAreaKey(props);
+        const areaScale = prefectureAreaScale[prefAreaKey] || 1;
+        const correctedSqKm = rawSqKm * areaScale;
+
+        // 清制面积换算：1 平方公里约为 15 顷。
+        const landArea = Math.max(1, Math.round(correctedSqKm * QING_PER_SQKM));
 
         let economyStr = "平平";
         let industryStr = "农业";
@@ -480,12 +570,12 @@ export function initWorldData() {
         const noise = 0.9 + Math.random() * 0.2; // 0.9 ~ 1.1
         const adminFactor = isCapital ? 3.5 : (isCapitalVicinity ? 1.6 : 1.0);
         const density = geoProfile.densityBase * geoProfile.geoScore * adminFactor * noise;
-        let pop = Math.max(1000, Math.round(sqKm * density));
+        let pop = Math.max(1000, Math.round(correctedSqKm * density));
 
         if (isCapital) {
             const historicalBase = 1050000;
             const variance = (Math.random() * 100000) - 50000;
-            pop = Math.round((historicalBase + variance) / 2) + Math.round(sqKm * geoProfile.densityBase * 0.1);
+            pop = Math.round((historicalBase + variance) / 2) + Math.round(correctedSqKm * geoProfile.densityBase * 0.1);
             economyStr = "天子脚下";
             industryStr = "中枢六部";
         } else if (isCapitalVicinity) {

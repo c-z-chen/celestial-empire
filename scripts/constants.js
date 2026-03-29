@@ -34,7 +34,6 @@ export const SIM_CONFIG = {
 export const EconomyLvls = ["凋敝", "贫困", "平平", "富庶", "繁华"];
 export const ecoLvlMap = { "繁华": 5, "富庶": 4, "平平": 3, "贫困": 2, "凋敝": 1, "天子脚下": 5, "京畿重地": 4 };
 export const normalizeEconomy = (economy = "") => economy.replace("官营·", "").replace("（官营）", "");
-export const MilitaryEconomyLvls = ["苦寒戍边", "军屯自给", "粮草充足", "军备森严"];
 export const CapitalVicinityIndustries = ["御窑织造", "百业行会", "皇庄贡品", "京通仓储"];
 
 export const BureauMap = {
@@ -51,11 +50,13 @@ export const BureauMap = {
 export const CAPITAL_MAX_GOVERNORS = 3;
 export const CAPITAL_REGION_COLORS = ["#9b59b6", "#16a085", "#d35400", "#2980b9", "#8e44ad", "#27ae60"];
 export const CAPITAL_GOVERNOR_PAIR_ABBR = {
-    "云南|贵州": "云贵",
+    "贵州|云南": "云贵",
     "广东|广西": "两广",
     "江苏|江西": "两江",
+    "安徽|江苏|江西": "两江",
     "陕西|甘肃": "陕甘",
-    "湖南|湖北": "湖广",
+    "湖北|湖南": "湖广",
+    "福建|浙江": "闽浙",
     "安徽|江苏": "江淮"
 };
 export const CAPITAL_PROV_SHORT = {

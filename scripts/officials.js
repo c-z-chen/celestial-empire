@@ -29,14 +29,12 @@ export function buildGovernorAbbrByProvIds(provIds) {
     const provNames = provIds.map(id => getProvinceNameById(id)).filter(Boolean);
     if (provNames.length === 0) return '';
     if (provNames.length === 1) return provNames[0].replace(/省$/g, '');
-    if (provNames.length === 2) {
+    if (provNames.length === 2 || provNames.length === 3) {
         const key = provNames.slice().sort((a, b) => a.localeCompare(b, 'zh-Hans-CN')).join('|');
         if (CAPITAL_GOVERNOR_PAIR_ABBR[key]) return CAPITAL_GOVERNOR_PAIR_ABBR[key];
     }
     return provNames.map(getProvinceShortName).join('');
 }
-
-// ── Roster helpers ─────────────────────────────────────────────────────────────
 
 export function generateRoster(template) {
     return template.map(tmpl => {

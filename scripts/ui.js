@@ -73,7 +73,7 @@ function aggregateRegionData(regionCounties) {
         smallScalePenalty
     ));
 
-    const ecoLabel = regionCompositeEco >= 4.55 ? "极盛" :
+    const ecoLabel = regionCompositeEco >= 4.85 ? "极盛" :
         regionCompositeEco >= 4.00 ? "富庶" :
         regionCompositeEco >= 2.35 ? "平稳" :
         regionCompositeEco >= 1.55 ? "拮据" : "凋敝";
