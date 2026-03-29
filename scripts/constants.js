@@ -2,9 +2,9 @@ export const MAP_WIDTH = 1000;
 export const MAP_HEIGHT = 700;
 
 export const SIM_CONFIG = {
-    capitalPopulationFloor: 800000,
-    capitalVicinity_multiplier: 1.6,
-    capitalAdminFactor: 3.5,
+    capitalPopulationBase: 1000000, 
+    capitalVicinity_multiplier: 2.2,
+    capitalAdminFactor: 8.5,
     capitalVicinityAdminFactor: 1.6,
     
     populationNoiseMin: 0.9,

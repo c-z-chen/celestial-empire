@@ -9,6 +9,10 @@ function aggregateRegionData(regionCounties) {
     let officialIndCounts = {};
 
     let ecoScores = [];
+    let regionEcoScores = [];
+    let regionEcoCounts = {};
+    let weightedEcoPopSum = 0;
+    let weightedEcoPopBase = 0;
     let uniqueMasters = new Set();
 
     regionCounties.forEach(c => {
@@ -24,22 +28,66 @@ function aggregateRegionData(regionCounties) {
         if (m.isOfficialRun && m.industry) {
             officialIndCounts[m.industry] = (officialIndCounts[m.industry] || 0) + 1;
         }
+        const normalizedEco = normalizeEconomy(m.economy || "");
+        const ecoScore = ecoLvlMap[normalizedEco];
+        if (ecoScore) {
+            regionEcoScores.push(ecoScore);
+            regionEcoCounts[normalizedEco] = (regionEcoCounts[normalizedEco] || 0) + 1;
+            weightedEcoPopSum += ecoScore * Math.max(1, m.population || 0);
+            weightedEcoPopBase += Math.max(1, m.population || 0);
+        }
         if (!m.isCapital && !m.isCapitalVicinity) {
-            ecoScores.push(ecoLvlMap[normalizeEconomy(m.economy)] || 0);
+            ecoScores.push(ecoScore || 0);
         }
     });
 
     let sortedInds = Object.keys(indCounts).sort((a, b) => indCounts[b] - indCounts[a]);
     let sortedOfficialInds = Object.keys(officialIndCounts).sort((a, b) => officialIndCounts[b] - officialIndCounts[a]);
+    let sortedEcoLevels = Object.keys(regionEcoCounts).sort((a, b) => regionEcoCounts[b] - regionEcoCounts[a]);
     const avgEco = ecoScores.length ? (ecoScores.reduce((sum, s) => sum + s, 0) / ecoScores.length) : 0;
     const maxEco = ecoScores.length ? Math.max(...ecoScores) : 0;
     const richCount = ecoScores.filter(s => s >= 4).length;
+    const regionAvgEco = regionEcoScores.length ? (regionEcoScores.reduce((sum, s) => sum + s, 0) / regionEcoScores.length) : 0;
+    const weightedEco = weightedEcoPopBase ? (weightedEcoPopSum / weightedEcoPopBase) : regionAvgEco;
     const hasValidOfficialBureau = Boolean(sortedOfficialInds[0]) && avgEco >= 3.35 && maxEco >= 4 && richCount >= 2;
+
+    let volumeBoost = 0;
+    if (totalPop >= 500000) volumeBoost += 0.2;
+    if (totalPop >= 1000000) volumeBoost += 0.2;
+    if (totalPop >= 2000000) volumeBoost += 0.15;
+    if (totalArea >= 20000) volumeBoost += 0.1;
+    if (totalArea >= 40000) volumeBoost += 0.1;
+
+    let smallScalePenalty = 0;
+    if (uniqueMasters.size <= 2 && totalPop < 350000) {
+        smallScalePenalty += 0.75;
+    } else if (uniqueMasters.size <= 3 && totalPop < 500000) {
+        smallScalePenalty += 0.4;
+    }
+    if (totalArea < 12000) smallScalePenalty += 0.15;
+
+    const regionCompositeEco = Math.max(1, Math.min(5,
+        (weightedEco * 0.58) +
+        (regionAvgEco * 0.42) +
+        volumeBoost -
+        smallScalePenalty
+    ));
+
+    const ecoLabel = regionCompositeEco >= 4.55 ? "极盛" :
+        regionCompositeEco >= 4.00 ? "富庶" :
+        regionCompositeEco >= 2.35 ? "平稳" :
+        regionCompositeEco >= 1.55 ? "拮据" : "凋敝";
+    const dominantEco = sortedEcoLevels[0] || "未知";
+    const volumeTag = totalPop >= 2000000 ? "体量：巨" :
+        totalPop >= 1000000 ? "体量：大" :
+        totalPop >= 500000 ? "体量：中" : "体量：小";
+    const economyStr = regionEcoScores.length ? `${ecoLabel}（${volumeTag}）` : "百业待兴";
     
     return { 
         totalPop, totalArea, militaryCount, topInd: sortedInds[0], secondInd: sortedInds[1],
         officialTopInd: sortedOfficialInds[0],
-        hasValidOfficialBureau
+        hasValidOfficialBureau,
+        economyStr
     };
 }
 
@@ -123,6 +171,7 @@ export function updateUI() {
 
         if (document.getElementById('stat-pref-pop'))  document.getElementById('stat-pref-pop').innerText  = prefStats.totalPop.toLocaleString()  + " 人" + milStr;
         if (document.getElementById('stat-pref-area')) document.getElementById('stat-pref-area').innerText = prefStats.totalArea.toLocaleString() + " 顷";
+        if (document.getElementById('stat-pref-econ')) document.getElementById('stat-pref-econ').innerText = prefStats.economyStr;
         if (document.getElementById('stat-pref-ind'))  document.getElementById('stat-pref-ind').innerText  = prefBureau;
     }
 
@@ -151,6 +200,7 @@ export function updateUI() {
 
         if (document.getElementById('stat-prov-pop'))  document.getElementById('stat-prov-pop').innerText  = provStats.totalPop.toLocaleString()  + " 人" + milStr;
         if (document.getElementById('stat-prov-area')) document.getElementById('stat-prov-area').innerText = provStats.totalArea.toLocaleString() + " 顷";
+        if (document.getElementById('stat-prov-econ')) document.getElementById('stat-prov-econ').innerText = provStats.economyStr;
         if (document.getElementById('stat-prov-ind'))  document.getElementById('stat-prov-ind').innerText  = provIndStr;
     }
 

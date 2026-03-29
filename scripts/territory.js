@@ -225,28 +225,28 @@ function assignPrefectureOfficialBureaus() {    const getPrefEconomyStats = (mas
 
 function getProvinceBaseProfile(provName) {
     const profileMap = {
-        "直隶":        { fertility: 0.74, riverAccess: 0.64, oceanAccess: 0.20, tradeAccess: 0.84, resourceScore: 0.36, frontierPenalty: 0.10, densityBase: 70 },
-        "江苏":        { fertility: 0.92, riverAccess: 0.90, oceanAccess: 0.42, tradeAccess: 0.92, resourceScore: 0.38, frontierPenalty: 0.00, densityBase: 350 },
-        "浙江":        { fertility: 0.82, riverAccess: 0.78, oceanAccess: 0.48, tradeAccess: 0.88, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 190 },
-        "安徽":        { fertility: 0.84, riverAccess: 0.82, oceanAccess: 0.02, tradeAccess: 0.64, resourceScore: 0.34, frontierPenalty: 0.00, densityBase: 140 },
-        "山东":        { fertility: 0.76, riverAccess: 0.56, oceanAccess: 0.40, tradeAccess: 0.70, resourceScore: 0.40, frontierPenalty: 0.00, densityBase: 125 },
-        "江西":        { fertility: 0.80, riverAccess: 0.76, oceanAccess: 0.00, tradeAccess: 0.58, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 115 },
-        "福建":        { fertility: 0.66, riverAccess: 0.52, oceanAccess: 0.58, tradeAccess: 0.80, resourceScore: 0.34, frontierPenalty: 0.00, densityBase: 95 },
-        "广东":        { fertility: 0.74, riverAccess: 0.70, oceanAccess: 0.62, tradeAccess: 0.86, resourceScore: 0.36, frontierPenalty: 0.02, densityBase: 110 },
-        "河南":        { fertility: 0.78, riverAccess: 0.50, oceanAccess: 0.00, tradeAccess: 0.56, resourceScore: 0.38, frontierPenalty: 0.00, densityBase: 110 },
-        "湖北":        { fertility: 0.84, riverAccess: 0.88, oceanAccess: 0.00, tradeAccess: 0.66, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 150 },
-        "湖南":        { fertility: 0.79, riverAccess: 0.72, oceanAccess: 0.00, tradeAccess: 0.60, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 100 },
-        "四川":        { fertility: 0.88, riverAccess: 0.70, oceanAccess: 0.00, tradeAccess: 0.54, resourceScore: 0.38, frontierPenalty: 0.10, densityBase: 70 },
-        "山西":        { fertility: 0.40, riverAccess: 0.30, oceanAccess: 0.00, tradeAccess: 0.50, resourceScore: 0.52, frontierPenalty: 0.06, densityBase: 58 },
-        "陕西":        { fertility: 0.48, riverAccess: 0.36, oceanAccess: 0.00, tradeAccess: 0.46, resourceScore: 0.52, frontierPenalty: 0.10, densityBase: 60 },
-        "广西":        { fertility: 0.60, riverAccess: 0.64, oceanAccess: 0.00, tradeAccess: 0.48, resourceScore: 0.44, frontierPenalty: 0.10, densityBase: 48 },
-        "云南":        { fertility: 0.46, riverAccess: 0.48, oceanAccess: 0.00, tradeAccess: 0.34, resourceScore: 0.54, frontierPenalty: 0.16, densityBase: 16 },
-        "贵州":        { fertility: 0.42, riverAccess: 0.44, oceanAccess: 0.00, tradeAccess: 0.32, resourceScore: 0.52, frontierPenalty: 0.14, densityBase: 26 },
-        "甘肃":        { fertility: 0.22, riverAccess: 0.18, oceanAccess: 0.00, tradeAccess: 0.36, resourceScore: 0.56, frontierPenalty: 0.34, densityBase: 20 },
+        "直隶":        { fertility: 0.74, riverAccess: 0.64, oceanAccess: 0.20, tradeAccess: 0.84, resourceScore: 0.36, frontierPenalty: 0.10, densityBase: 70 }, // 约 20,000,000 人
+        "江苏":        { fertility: 0.92, riverAccess: 0.90, oceanAccess: 0.42, tradeAccess: 0.92, resourceScore: 0.38, frontierPenalty: 0.00, densityBase: 350 }, // 约 32,000,000 人
+        "浙江":        { fertility: 0.82, riverAccess: 0.78, oceanAccess: 0.48, tradeAccess: 0.88, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 190 }, // 约 27,000,000 人
+        "安徽":        { fertility: 0.84, riverAccess: 0.82, oceanAccess: 0.02, tradeAccess: 0.64, resourceScore: 0.34, frontierPenalty: 0.00, densityBase: 140 }, // 约 34,000,000 人
+        "山东":        { fertility: 0.76, riverAccess: 0.56, oceanAccess: 0.40, tradeAccess: 0.70, resourceScore: 0.40, frontierPenalty: 0.00, densityBase: 125 }, // 约 30,000,000 人
+        "江西":        { fertility: 0.80, riverAccess: 0.76, oceanAccess: 0.00, tradeAccess: 0.58, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 115 }, // 约 23,000,000 人
+        "福建":        { fertility: 0.66, riverAccess: 0.52, oceanAccess: 0.58, tradeAccess: 0.80, resourceScore: 0.34, frontierPenalty: 0.00, densityBase: 95 }, // 约 17,000,000 人
+        "广东":        { fertility: 0.76, riverAccess: 0.74, oceanAccess: 0.66, tradeAccess: 0.90, resourceScore: 0.36, frontierPenalty: 0.02, densityBase: 120 }, // 约 21,000,000 人
+        "河南":        { fertility: 0.78, riverAccess: 0.50, oceanAccess: 0.00, tradeAccess: 0.56, resourceScore: 0.38, frontierPenalty: 0.00, densityBase: 210 }, // 约 24,000,000 人
+        "湖北":        { fertility: 0.86, riverAccess: 0.88, oceanAccess: 0.00, tradeAccess: 0.66, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 190 }, // 约 28,000,000 人
+        "湖南":        { fertility: 0.80, riverAccess: 0.72, oceanAccess: 0.00, tradeAccess: 0.60, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 130 }, // 约 19,000,000 人
+        "四川":        { fertility: 0.88, riverAccess: 0.70, oceanAccess: 0.00, tradeAccess: 0.54, resourceScore: 0.38, frontierPenalty: 0.10, densityBase: 70 }, // 约 25,000,000 人
+        "山西":        { fertility: 0.42, riverAccess: 0.30, oceanAccess: 0.00, tradeAccess: 0.50, resourceScore: 0.62, frontierPenalty: 0.06, densityBase: 150 }, // 约 14,000,000 人
+        "陕西":        { fertility: 0.48, riverAccess: 0.36, oceanAccess: 0.00, tradeAccess: 0.46, resourceScore: 0.58, frontierPenalty: 0.10, densityBase: 100 }, // 约 10,000,000 人
+        "广西":        { fertility: 0.70, riverAccess: 0.64, oceanAccess: 0.00, tradeAccess: 0.48, resourceScore: 0.34, frontierPenalty: 0.10, densityBase: 56 }, // 约 7,500,000 人
+        "云南":        { fertility: 0.46, riverAccess: 0.48, oceanAccess: 0.00, tradeAccess: 0.34, resourceScore: 0.54, frontierPenalty: 0.16, densityBase: 16 }, // 约 5,000,000 人
+        "贵州":        { fertility: 0.42, riverAccess: 0.44, oceanAccess: 0.00, tradeAccess: 0.32, resourceScore: 0.52, frontierPenalty: 0.14, densityBase: 26 }, // 5,348,667 人
+        "甘肃":        { fertility: 0.22, riverAccess: 0.18, oceanAccess: 0.00, tradeAccess: 0.36, resourceScore: 0.56, frontierPenalty: 0.34, densityBase: 20 }, // 约 15,000,000 人
         "盛京":        { fertility: 0.52, riverAccess: 0.40, oceanAccess: 0.28, tradeAccess: 0.44, resourceScore: 0.44, frontierPenalty: 0.22, densityBase: 18 },
-        "内蒙古":      { fertility: 0.08, riverAccess: 0.10, oceanAccess: 0.00, tradeAccess: 0.24, resourceScore: 0.50, frontierPenalty: 0.50, densityBase: 4 },
+        "内蒙古":      { fertility: 0.08, riverAccess: 0.10, oceanAccess: 0.00, tradeAccess: 0.24, resourceScore: 0.50, frontierPenalty: 0.50, densityBase: 6 },
         "新疆":        { fertility: 0.06, riverAccess: 0.08, oceanAccess: 0.00, tradeAccess: 0.24, resourceScore: 0.54, frontierPenalty: 0.58, densityBase: 2 },
-        "乌里雅苏台":  { fertility: 0.03, riverAccess: 0.04, oceanAccess: 0.00, tradeAccess: 0.12, resourceScore: 0.48, frontierPenalty: 0.70, densityBase: 1 },
+        "乌里雅苏台":  { fertility: 0.03, riverAccess: 0.04, oceanAccess: 0.00, tradeAccess: 0.12, resourceScore: 0.48, frontierPenalty: 0.70, densityBase: 2 },
         "台湾":        { fertility: 0.56, riverAccess: 0.58, oceanAccess: 0.80, tradeAccess: 0.74, resourceScore: 0.36, frontierPenalty: 0.18, densityBase: 11 },
     };
     return profileMap[provName] || {
@@ -483,7 +483,9 @@ export function initWorldData() {
         let pop = Math.max(1000, Math.round(sqKm * density));
 
         if (isCapital) {
-            pop = Math.max(pop, 800000);
+            const historicalBase = 1050000;
+            const variance = (Math.random() * 100000) - 50000;
+            pop = Math.round((historicalBase + variance) / 2) + Math.round(sqKm * geoProfile.densityBase * 0.1);
             economyStr = "天子脚下";
             industryStr = "中枢六部";
         } else if (isCapitalVicinity) {

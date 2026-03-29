@@ -1,5 +1,3 @@
-// Shared mutable application state.
-// All modules import this object and mutate its properties directly.
 export const state = {
     countyData: {},
     prefecturesData: {},
