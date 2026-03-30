@@ -297,7 +297,7 @@ function getProvinceBaseProfile(provName) {
         "浙江":        { fertility: 0.90, riverAccess: 0.80, oceanAccess: 0.48, tradeAccess: 0.88, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 300 }, // 约 27,000,000 人
         "安徽":        { fertility: 0.84, riverAccess: 0.82, oceanAccess: 0.02, tradeAccess: 0.64, resourceScore: 0.34, frontierPenalty: 0.00, densityBase: 300 }, // 约 34,000,000 人
         "山东":        { fertility: 0.76, riverAccess: 0.56, oceanAccess: 0.40, tradeAccess: 0.70, resourceScore: 0.40, frontierPenalty: 0.00, densityBase: 300 }, // 约 30,000,000 人
-        "江西":        { fertility: 0.80, riverAccess: 0.76, oceanAccess: 0.00, tradeAccess: 0.58, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 115 }, // 约 23,000,000 人
+        "江西":        { fertility: 0.80, riverAccess: 0.76, oceanAccess: 0.00, tradeAccess: 0.58, resourceScore: 0.36, frontierPenalty: 0.00, densityBase: 180 }, // 约 23,000,000 人
         "福建":        { fertility: 0.66, riverAccess: 0.52, oceanAccess: 0.58, tradeAccess: 0.80, resourceScore: 0.34, frontierPenalty: 0.00, densityBase: 95 }, // 约 17,000,000 人
         "广东":        { fertility: 0.76, riverAccess: 0.74, oceanAccess: 0.66, tradeAccess: 0.90, resourceScore: 0.36, frontierPenalty: 0.02, densityBase: 120 }, // 约 21,000,000 人
         "河南":        { fertility: 0.78, riverAccess: 0.50, oceanAccess: 0.00, tradeAccess: 0.56, resourceScore: 0.38, frontierPenalty: 0.00, densityBase: 210 }, // 约 24,000,000 人

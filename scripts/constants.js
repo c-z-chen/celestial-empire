@@ -177,7 +177,6 @@ export const officialData = {
         { title: "内务府郎中", type: "standing", quota: 10 },
         { title: "钦天监监正", type: "standing", quota: 1 },
         { title: "太医院院使", type: "standing", quota: 1 },
-        // { title: "五品京堂", type: "concurrent", quota: 8 }
     ],
     "从五品": [
         { title: "翰林院侍读", type: "standing", quota: 8 },
@@ -332,7 +331,7 @@ export const EXAMINATION_HIERARCHY = {
 
 export const RANK_TO_PREFERRED_EXAM = {
     "正一品": ["进士·一甲", "进士·二甲"],
-    "从一品": ["进士·二甲", "进士·三甲", "举人"],
+    "从一品": ["进士·一甲", "进士·二甲", "进士·三甲"],
     "正二品": ["进士·二甲", "进士·三甲", "举人"],
     "从二品": ["进士·二甲", "进士·三甲", "举人"],
     "正三品": ["进士·三甲", "举人", "贡生"],

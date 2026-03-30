@@ -896,3 +896,39 @@ details[open] .official-summary::before {
     font-size: 0.82em;
     margin-top: 2px;
 }
+/* 兼衔徽章与撤销按钮 */
+.concurrent-posts-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.concurrent-post-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #1d3a52, #2c5a7a);
+    border: 1px solid #4a7a9a;
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: #a8d5f7;
+    font-size: 0.88em;
+    white-space: nowrap;
+}
+
+.concurrent-remove-btn {
+    background: none;
+    border: none;
+    color: #ff6b6b;
+    cursor: pointer;
+    font-size: 1.1em;
+    padding: 0;
+    margin-left: 4px;
+    transition: color 0.2s ease;
+    line-height: 1;
+}
+
+.concurrent-remove-btn:hover {
+    color: #ff9999;
+}

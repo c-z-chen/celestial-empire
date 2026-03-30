@@ -120,14 +120,11 @@ function makeShiName() {
     return `${randomSurname()}氏`;
 }
 
-// 格式化子女名字：女儿显示为"X氏"，儿子显示完整名字
 function formatChildName(child, familySurname) {
     if (!child || !familySurname) return '未知';
     if (child.gender === '女') {
-        // 女儿只显示姓氏，隐去具体名字
         return `${familySurname}氏`;
     }
-    // 儿子显示完整名字
     return child.name || '未知';
 }
 
@@ -169,13 +166,11 @@ function pickDistinctTraits() {
     return traits;
 }
 
-// 根据官位品级选择考试出身，遵循学历歧视规则
-function pickExamPathByRank(rank) {
-    const preferred = RANK_TO_PREFERRED_EXAM[rank] || RANK_TO_PREFERRED_EXAM.default;
-    // 按优先级加权选择
+function pickExamPathByRank(rank, positionTitle = '') {
+    const preferred = getExamTargetsForPost(rank, positionTitle);
     const weighted = preferred.map((path, idx) => ({
         path,
-        weight: 10 - idx * 2  // 优先级越靠前权重越高
+        weight: 10 - idx * 2
     }));
     const total = weighted.reduce((s, x) => s + x.weight, 0);
     let roll = Math.random() * total;
@@ -197,39 +192,124 @@ function isAtLeastThirdRank(rank = '') {
     return idx <= OFFICIAL_RANK_ORDER.indexOf('从三品');
 }
 
+function isAtLeastSecondRank(rank = '') {
+    const idx = OFFICIAL_RANK_ORDER.indexOf(rank);
+    if (idx < 0) return false;
+    return idx <= OFFICIAL_RANK_ORDER.indexOf('从二品');
+}
+
+function getHonoraryRequiredRank(title = '') {
+    const strictTitles = [
+        '少师', '少傅', '少保',
+        '太子太师', '太子太傅', '太子太保',
+        '太子少师', '太子少傅', '太子少保'
+    ];
+    return strictTitles.includes(title) ? '从二品' : null;
+}
+
+
+function getHonoraryGroup(title) {
+    if (['太师', '太傅', '太保'].includes(title)) return '三公';
+    if (['少师', '少傅', '少保'].includes(title)) return '三孤';
+    if (['太子太师', '太子太傅', '太子太保'].includes(title)) return '太子三师';
+    if (['太子少师', '太子少傅', '太子少保'].includes(title)) return '太子三孤';
+    return null;
+}
+
+function hasConflictingHonorary(official, newTitle) {
+    const newGroup = getHonoraryGroup(newTitle);
+    if (!newGroup) return false;
+    return (official.concurrentPosts || []).some(p => getHonoraryGroup(p.title) !== null);
+}
+
+function canHoldHonoraryTitle(title = '', mainRank = '') {
+    const requiredRank = getHonoraryRequiredRank(title);
+    if (!requiredRank) return true;
+    const curIdx = OFFICIAL_RANK_ORDER.indexOf(mainRank);
+    const reqIdx = OFFICIAL_RANK_ORDER.indexOf(requiredRank);
+    if (curIdx < 0 || reqIdx < 0) return false;
+    return curIdx <= reqIdx;
+}
+
+function getHanlinExamTargets(rank = '', positionTitle = '') {
+    const strictHanlinTitles = [
+        '翰林院掌院学士',
+        '翰林院侍读学士',
+        '翰林院侍讲学士',
+        '内阁侍读学士',
+        '翰林院侍读',
+        '翰林院侍讲',
+        '翰林院修撰',
+        '翰林院编修',
+        '翰林院检讨'
+    ];
+    if (strictHanlinTitles.some(t => positionTitle.includes(t))) {
+        return ['进士·二甲', '进士·一甲'];
+    }
+    return null;
+}
+
+function getExamTargetsForPost(rank = '', positionTitle = '') {
+    const hanlinTargets = getHanlinExamTargets(rank, positionTitle);
+    if (hanlinTargets) return hanlinTargets;
+
+    const jinshiHeavyKeywords = [
+        '博士',
+        '郎中',
+        '主事',
+        '员外郎',
+        '给事中',
+        '中书',
+        '洗马',
+        '庶子',
+        '中允',
+        '赞善'
+    ];
+    if (jinshiHeavyKeywords.some(k => positionTitle.includes(k))) {
+        return ['进士·三甲', '进士·二甲', '进士·一甲', '举人'];
+    }
+
+    return RANK_TO_PREFERRED_EXAM[rank] || RANK_TO_PREFERRED_EXAM.default;
+}
+
+function hasHanlinCredential(official) {
+    const examPath = normalizeExamPath(official?.profile?.examination?.path || '');
+    if (examPath === '进士·一甲' || examPath === '进士·二甲' || examPath === '进士·三甲') return true;
+
+    const mainTitle = official?.mainPost?.title || '';
+    return mainTitle.includes('翰林院') || mainTitle.includes('内阁侍读学士') || mainTitle.includes('内阁学士');
+}
+
 function ensureExamPathForMainPost(official, rank, positionTitle, appointedYear) {
     if (!official?.profile) return;
     const exam = official.profile.examination || {};
-    const preferred = RANK_TO_PREFERRED_EXAM[rank] || RANK_TO_PREFERRED_EXAM.default;
+    const preferred = getExamTargetsForPost(rank, positionTitle);
     const currentPath = normalizeExamPath(exam.path || '');
     const isTopRank = OFFICIAL_RANK_ORDER.indexOf(rank) <= OFFICIAL_RANK_ORDER.indexOf('从二品');
-    const isHanlin = (positionTitle || '').includes('翰林');
 
     let nextPath = currentPath;
     const needUpgrade = !preferred.includes(currentPath)
-        || (isTopRank && !currentPath.startsWith('进士'))
-        || (isHanlin && !currentPath.startsWith('进士'));
+        || (isTopRank && !currentPath.startsWith('进士'));
 
     if (needUpgrade) {
-        const target = isHanlin ? ['进士·一甲', '进士·二甲', '进士·三甲'] : preferred;
-        nextPath = target[0] || pickExamPathByRank(rank);
-        if (target.length > 1) {
+        nextPath = preferred[0] || pickExamPathByRank(rank, positionTitle);
+        if (preferred.length > 1) {
             const roll = Math.random();
-            if (roll > 0.72) nextPath = target[Math.min(1, target.length - 1)];
-            if (roll > 0.92) nextPath = target[Math.min(2, target.length - 1)];
+            if (roll > 0.72) nextPath = preferred[Math.min(1, preferred.length - 1)];
+            if (roll > 0.92) nextPath = preferred[Math.min(2, preferred.length - 1)];
         }
     }
 
     official.profile.examination = {
         ...exam,
-        path: nextPath || pickExamPathByRank(rank),
+        path: nextPath || pickExamPathByRank(rank, positionTitle),
         year: Math.max(official.birthYear + 16, Math.min(appointedYear - 1, exam.year || appointedYear - 2)),
         attempts: Number.isInteger(exam.attempts) ? exam.attempts : (1 + Math.floor(Math.random() * 3))
     };
 }
 
 function shouldAutoGrantHonorary(title = '') {
-    const keepVacant = ['太师', '太傅', '太保'];
+    const keepVacant = ['太师', '太傅', '太保', '保和殿大学士'];
     return !keepVacant.includes(title);
 }
 
@@ -240,9 +320,10 @@ function isGrandSecretariatTitle(title = '') {
 function isCabinetEligibleOfficial(official) {
     const mainTitle = official?.mainPost?.title || '';
     const mainRank = official?.mainPost?.rank || '未入流';
-    return mainTitle.includes('尚书')
-        || mainTitle.includes('都御史')
-        || OFFICIAL_RANK_ORDER.indexOf(mainRank) <= OFFICIAL_RANK_ORDER.indexOf('从二品');
+    const isSecretary = mainTitle.includes('尚书') || mainTitle.includes('都御史');
+    if (!isSecretary) return false;
+    if (mainRank !== '从一品') return false;
+    return hasHanlinCredential(official);
 }
 
 function revokeConcurrentTitleFromAll(positionTitle, endYear = OFFICIAL_TIMELINE_BASE_YEAR) {
@@ -294,8 +375,10 @@ function weightedPickByRule(title, rank, type) {
         if (o.concurrentPosts.some(p => p.title === title)) return false;
         if ((o.concurrentPosts.length || 0) >= (rule.maxConcurrent || 3)) return false;
         if (o.age < (rule.minAge || 24)) return false;
-        if (type === 'honorary' && title.startsWith('太子少') && !isAtLeastThirdRank(o.mainPost?.rank || '')) return false;
+        if (type === 'honorary' && !canHoldHonoraryTitle(title, o.mainPost?.rank || '')) return false;
+        if (type === 'honorary' && hasConflictingHonorary(o, title)) return false;
         if (isGrandSecretariatTitle(title) && !isCabinetEligibleOfficial(o)) return false;
+        if (isGrandSecretariatTitle(title) && o.concurrentPosts.some(p => isGrandSecretariatTitle(p.title))) return false;
         return true;
     });
     if (pool.length === 0) return null;
@@ -317,19 +400,16 @@ function weightedPickByRule(title, rank, type) {
             }
         }
         
-        // 加入学历歧视权重：高品官员需要更好的考试出身
         const examPath = normalizeExamPath(o.profile?.examination?.path || 'unknown');
         const examHierarchy = EXAMINATION_HIERARCHY[examPath] || 0;
         const preferredExams = RANK_TO_PREFERRED_EXAM[rank] || RANK_TO_PREFERRED_EXAM.default;
         if (preferredExams.includes(examPath)) {
-            // 优先级越靠前权重越高
             const preferIdx = preferredExams.indexOf(examPath);
             weight += (preferredExams.length - preferIdx) * 2;
         } else {
-            // 不在优先列表的出身等级会被降权
             weight *= 0.6;
         }
-        weight += examHierarchy / 20;  // 自身等级也有一定影响
+        weight += examHierarchy / 20;
         
         return { id: o.id, weight: Math.max(weight, 1) };
     });
@@ -349,10 +429,8 @@ function buildOfficialProfile(fullName, ageInput) {
     const birthYear = OFFICIAL_TIMELINE_BASE_YEAR - age;
     const serviceStartYear = birthYear + 18 + Math.floor(Math.random() * 8);
     
-    // 构建考试出身路径（包括甲次）
     let examPath = randomPick(OFFICIAL_PROFILE_POOLS.examPaths);
     if (examPath === '进士') {
-        // 进士需要分甲次：一甲较少、二甲中等、三甲较多
         const roll = Math.random();
         if (roll < 0.05) examPath = '进士·一甲';
         else if (roll < 0.25) examPath = '进士·二甲';
@@ -436,7 +514,6 @@ function ensureCapitalOfficialsInitialized() {
     ensureOfficialsStateShape();
     if (Object.keys(state.officials.byId).length > 0) return;
 
-    // 先补齐常设实职，再把加衔授给已有官员。
     for (const [rank, jobs] of Object.entries(officialData)) {
         const standingJobs = jobs.filter(job => (job.type || 'standing') === 'standing');
         standingJobs.forEach(job => {
@@ -456,7 +533,7 @@ function ensureCapitalOfficialsInitialized() {
             return type === 'concurrent' || type === 'honorary';
         });
         grantJobs.forEach(job => {
-            if (job.type === 'honorary' && !shouldAutoGrantHonorary(job.title)) return;
+            if (!shouldAutoGrantHonorary(job.title)) return;
             const slots = getJobSlots(job);
             for (let i = 0; i < slots; i++) {
                 const offId = weightedPickByRule(job.title, rank, job.type || 'concurrent');
@@ -525,7 +602,8 @@ function promptGrantHonoraryTitle(title, rank) {
     const candidates = Object.values(state.officials.byId)
         .filter(o => o.status === 'in_service')
         .filter(o => !(o.concurrentPosts || []).some(p => p.title === title))
-        .filter(o => !title.startsWith('太子少') || isAtLeastThirdRank(o.mainPost?.rank || ''))
+        .filter(o => !hasConflictingHonorary(o, title))
+        .filter(o => canHoldHonoraryTitle(title, o.mainPost?.rank || ''))
         .sort((a, b) => rankScore(b.mainPost?.rank || '未入流') - rankScore(a.mainPost?.rank || '未入流'));
 
     if (candidates.length === 0) {
@@ -551,10 +629,19 @@ function promptGrantHonoraryTitle(title, rank) {
 }
 
 function promptGrantCabinetTitle(title, rank) {
+    const isAcademician = title.includes('内阁学士') && !title.includes('大学士');
+    
     const candidates = Object.values(state.officials.byId)
         .filter(o => o.status === 'in_service')
         .filter(o => !(o.concurrentPosts || []).some(p => p.title === title))
-        .filter(o => isCabinetEligibleOfficial(o))
+        .filter(o => {
+            if (isAcademician) {
+                const mt = o.mainPost?.title || '';
+                return mt.includes('侍郎') || mt.includes('詹事') || mt.includes('翰林院') || mt.includes('内阁侍读') || mt.includes('国子监');
+            } else {
+                return !o.concurrentPosts.some(p => isGrandSecretariatTitle(p.title)) && isCabinetEligibleOfficial(o);
+            }
+        })
         .sort((a, b) => rankScore(b.mainPost?.rank || '未入流') - rankScore(a.mainPost?.rank || '未入流'));
 
     if (candidates.length === 0) {
@@ -562,11 +649,12 @@ function promptGrantCabinetTitle(title, rank) {
         return;
     }
 
-    const options = candidates.slice(0, 12);
+    const options = candidates.slice(0, 15);
     const lines = options
         .map((o, i) => `${i + 1}. ${o.name}（${o.mainPost?.title || '未授实职'} / ${o.mainPost?.rank || '未入流'}）`)
         .join('\n');
-    const answer = window.prompt(`授予 ${title}（限尚书/都御史/二品以上）：请输入序号\n${lines}`);
+    const tip = isAcademician ? `授予 ${title}（限侍郎/詹事/词臣）` : `授予 ${title}（限尚书/都御史）`;
+    const answer = window.prompt(`${tip}：请输入序号\n${lines}`);
     if (!answer) return;
 
     const index = Number.parseInt(answer, 10) - 1;
@@ -576,7 +664,6 @@ function promptGrantCabinetTitle(title, rank) {
     }
 
     const picked = options[index];
-    revokeConcurrentTitleFromAll(title, OFFICIAL_TIMELINE_BASE_YEAR - 1);
     addConcurrentPost(picked.id, title, rank, 'concurrent', OFFICIAL_TIMELINE_BASE_YEAR);
     if (!state.selectedOfficialId) state.selectedOfficialId = picked.id;
     renderCapitalLeftOfficialList();
@@ -603,12 +690,16 @@ function renderSelectedOfficialDetail() {
         .map(x => `${x.year} ${x.kind}${x.detail}`)
         .join('；') || '暂无';
 
+    const concurrentHtml = (official.concurrentPosts && official.concurrentPosts.length > 0)
+        ? official.concurrentPosts.map(p => `<span class="concurrent-post-badge" data-offid="${official.id}" data-title="${p.title}">${p.title}<button class="concurrent-remove-btn" title="撤销此衔">✕</button></span>`).join('')
+        : '无';
+
     detailContainer.innerHTML = `
         <div class="capital-detail-card">
             <div class="capital-detail-name">${official.name}</div>
             <div class="capital-detail-grid">
                 <div><span class="resume-k">本官</span><span class="resume-v">${official.mainPost?.title || '未授实职'}</span></div>
-                <div><span class="resume-k">兼衔</span><span class="resume-v">${(official.concurrentPosts || []).map(p => p.title).join('、') || '无'}</span></div>
+                <div><span class="resume-k" style="display:flex;align-items:center;gap:4px;">兼衔<button class="add-concurrent-btn" data-id="${official.id}" style="font-size:0.8em;padding:0 2px;cursor:pointer;background:transparent;border:1px solid #7f8c8d;border-radius:3px;color:#f39c12;line-height:1;" title="加衔">(+)</button></span><span class="resume-v concurrent-posts-container">${concurrentHtml}</span></div>
                 <div><span class="resume-k">出生</span><span class="resume-v">${profile.birthYear || official.birthYear || '未知'}年，${profile.birthPlace || '未知'}，${profile.birthStatus || '未知'}</span></div>
                 <div><span class="resume-k">科举</span><span class="resume-v">${exam.path || '未知'}（${exam.year || '未知'}），应试${exam.attempts || '未知'}次</span></div>
                 <div><span class="resume-k">家族</span><span class="resume-v">父${family.father || '未知'}，母${family.mother || '未知'}，配偶${family.spouse || '未知'}，子女${children}</span></div>
@@ -619,7 +710,25 @@ function renderSelectedOfficialDetail() {
             </div>
         </div>
     `;
+
+    detailContainer.querySelectorAll('.add-concurrent-btn').forEach(btn => {
+        btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            promptAddConcurrentForOfficial(btn.dataset.id);
+        });
+    });
+
+    detailContainer.querySelectorAll('.concurrent-remove-btn').forEach(btn => {
+        btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const postBadge = btn.parentElement;
+            const offId = postBadge.dataset.offid;
+            const title = postBadge.dataset.title;
+            revokeConcurrentPostFromOfficial(offId, title);
+        });
+    });
 }
+
 
 function renderCapitalLeftOfficialList() {
     const leftPane = document.getElementById('capital-left-pane');
@@ -643,7 +752,7 @@ function renderCapitalLeftOfficialList() {
             if (pos.type === 'honorary') {
                 honoraryTitles[pos.title] = { rank, holders: [] };
             }
-            if (pos.type === 'concurrent' && pos.title.includes('大学士')) {
+            if (pos.type === 'concurrent' && (pos.title.includes('大学士') || pos.title.includes('内阁学士'))) {
                 cabinetConcurrent[pos.title] = { rank, holders: [] };
             }
         });
@@ -737,7 +846,7 @@ function renderCapitalLeftOfficialList() {
                     const foldKey = `${rank}::${pos}`;
                     return `
                         <details class="capital-left-post-fold" data-fold-key="${foldKey}">
-                            <summary><span>${pos}</span><small>${offs.length}员，点击展开</small></summary>
+                            <summary><span>${pos}（${offs.length}员）</span><small>点击展开</small></summary>
                             <div class="capital-left-post-body">${rows}</div>
                         </details>
                     `;
@@ -1149,4 +1258,63 @@ export function getOfficialPostsDisplay(offId) {
  */
 export function getOfficialById(offId) {
     return state.officials.byId[offId] || null;
+}
+
+/**
+ * 撤销官员的兼衔
+ * @param {string} offId 官员ID
+ * @param {string} positionTitle 要撤销的衔职名称
+ */
+export function revokeConcurrentPostFromOfficial(offId, positionTitle) {
+    const official = state.officials.byId[offId];
+    if (!official) return;
+
+    official.concurrentPosts = (official.concurrentPosts || []).filter(p => p.title !== positionTitle);
+
+    if (Array.isArray(official.profile?.postTimeline)) {
+        official.profile.postTimeline.forEach(item => {
+            if (item.title === positionTitle && !Number.isInteger(item.endYear)) {
+                item.endYear = OFFICIAL_TIMELINE_BASE_YEAR;
+            }
+        });
+    }
+
+    if (Array.isArray(state.officials.byPosition[positionTitle])) {
+        state.officials.byPosition[positionTitle] = state.officials.byPosition[positionTitle]
+            .filter(x => !(x.offId === offId && !x.isMain));
+    }
+
+    renderCapitalLeftOfficialList();
+    renderSelectedOfficialDetail();
+}
+
+function promptAddConcurrentForOfficial(offId) {
+    const titleRaw = window.prompt("请输入要加的兼衔/虚衔名称（如：太子太保，内阁学士等）：");
+    if (!titleRaw) return;
+    const title = titleRaw.trim();
+    if (!title) return;
+    
+    // Find the rank for this title from officialData
+    let rank = '从一品'; // Default 
+    let type = 'concurrent';
+    let found = false;
+    for (const [r, list] of Object.entries(officialData)) {
+        const item = list.find(p => p.title === title);
+        if (item) {
+            rank = r;
+            type = item.type === 'honorary' ? 'honorary' : 'concurrent';
+            found = true;
+            break;
+        }
+    }
+    
+    if (!found) {
+        if (!window.confirm(`未在官制库中找到名[\${title}]，确定要强行授予吗？`)) {
+            return;
+        }
+    }
+    
+    addConcurrentPost(offId, title, rank, type, OFFICIAL_TIMELINE_BASE_YEAR);
+    renderCapitalLeftOfficialList();
+    renderSelectedOfficialDetail();
 }
