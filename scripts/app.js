@@ -1,7 +1,12 @@
 import { MAP_WIDTH, MAP_HEIGHT } from './constants.js';
 import { state } from './state.js';
 import { computeNeighbors, renderMap } from './map.js';
-import { renderCapitalOfficials, renderCapitalGovernorAssignments, establishCapitalGovernorRegion } from './officials.js';
+import {
+    renderCapitalOfficials,
+    renderCapitalGovernorAssignments,
+    establishCapitalGovernorRegion,
+    setCapitalMode
+} from './officials.js';
 import { initWorldData, establish, toggleMerge } from './territory.js';
 import { switchTab } from './ui.js';
 import { SaveManager } from './save.js';
@@ -47,6 +52,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('btn-expand-pref')?.addEventListener('click', () => toggleMerge('prefecture'));
     document.getElementById('btn-expand-prov')?.addEventListener('click', () => toggleMerge('province'));
     document.getElementById('btn-establish-governor-region')?.addEventListener('click', () => establishCapitalGovernorRegion());
+    document.getElementById('btn-capital-mode-officials')?.addEventListener('click', () => setCapitalMode('officials'));
+    document.getElementById('btn-capital-mode-governor')?.addEventListener('click', () => setCapitalMode('governor'));
 
     document.getElementById('btn-save-local')?.addEventListener('click', () => SaveManager.saveToLocal());
     document.getElementById('btn-load-local')?.addEventListener('click', () => SaveManager.loadFromLocal());
@@ -70,5 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     renderCapitalOfficials();
     renderCapitalGovernorAssignments();
+    setCapitalMode(state.capitalMode || 'governor');
+    switchTab('county');
     loadChinaMap();
 });

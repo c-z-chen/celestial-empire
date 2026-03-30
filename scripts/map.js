@@ -162,7 +162,7 @@ export function setMapView(mode, syncTab = true) {
 // ── Full map render ────────────────────────────────────────────────────────────
 
 export function renderMap() {
-    d3.select("#map-container").selectAll("*").remove();
+    d3.select("#map-container").selectAll("svg").remove();
 
     const svg = d3.select("#map-container").append("svg")
         .attr("viewBox", `0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`)
