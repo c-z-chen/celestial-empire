@@ -17,6 +17,250 @@ body {
     overflow: hidden;
 }
 
+.capital-left-pane {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: radial-gradient(circle at 20% 0%, #223a4c, #162533 70%);
+    border-right: 1px solid rgba(243, 156, 18, 0.35);
+}
+
+.capital-left-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid #3a5165;
+    color: #f7d089;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.capital-left-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 10px;
+    display: block;
+}
+
+.capital-left-rank-jumps {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    border-bottom: 1px solid #3a5165;
+    background: rgba(15, 31, 44, 0.92);
+    position: sticky;
+    top: 0;
+    z-index: 6;
+}
+
+.capital-rank-jump {
+    border: 1px solid #415d73;
+    background: #1e3344;
+    color: #c9d8e3;
+    border-radius: 999px;
+    font-size: 0.78em;
+    padding: 2px 8px;
+    cursor: pointer;
+}
+
+.capital-rank-jump:hover {
+    border-color: #f39c12;
+    color: #fff;
+}
+
+.capital-left-rank {
+    flex: 0 0 auto;
+    border: 1px solid #385368;
+    border-radius: 8px;
+    background: rgba(12, 23, 33, 0.45);
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.capital-left-rank:last-child {
+    margin-bottom: 0;
+}
+
+.capital-left-rank-title {
+    font-size: 0.9em;
+    color: #f0b96a;
+    padding: 6px 10px;
+    border-bottom: 1px solid #2e4558;
+    background: #172836;
+}
+
+/* 虚衔殊荣职位 */
+.capital-honorary-fold {
+    border: 1px solid #8b7355;
+    background: rgba(139, 115, 85, 0.15);
+    margin: 8px 10px 12px;
+    border-radius: 4px;
+}
+
+.capital-honorary-fold summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 6px 10px;
+    color: #c39968;
+    font-weight: bold;
+    font-size: 0.85em;
+    background: rgba(100, 63, 28, 0.3);
+    user-select: none;
+}
+
+.capital-honorary-fold summary::-webkit-details-marker {
+    display: none;
+}
+
+.capital-honorary-fold summary::before {
+    content: "▶";
+    margin-right: 6px;
+    font-size: 0.75em;
+}
+
+.capital-honorary-fold[open] summary::before {
+    content: "▼";
+}
+
+.capital-honorary-body {
+    padding: 8px 10px;
+    font-size: 0.8em;
+    background: rgba(72, 45, 20, 0.2);
+}
+
+.honorary-title-item {
+    margin-bottom: 6px;
+    padding: 4px 6px;
+    border-left: 2px solid #8b7355;
+    color: #d4a574;
+    line-height: 1.4;
+}
+
+.honorary-title-item strong {
+    color: #d4a574;
+    font-weight: bold;
+}
+
+.honorary-grant-btn,
+.cabinet-grant-btn {
+    margin-left: 8px;
+    padding: 1px 6px;
+    border: 1px solid #9e7b52;
+    border-radius: 3px;
+    background: rgba(68, 44, 22, 0.55);
+    color: #f2cf9a;
+    font-size: 0.78em;
+    cursor: pointer;
+}
+
+.honorary-grant-btn:hover,
+.cabinet-grant-btn:hover {
+    background: rgba(90, 60, 30, 0.8);
+}
+
+.honorary-holder {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 2px 4px;
+    background: rgba(90, 60, 30, 0.4);
+    border-radius: 2px;
+    color: #c39968;
+}
+
+.honorary-empty {
+    color: #666;
+    font-style: italic;
+}
+
+.capital-left-post-title {
+    font-size: 0.82em;
+    color: #8db4cd;
+    background: #1a2f40;
+    border-bottom: 1px dashed #35526a;
+    padding: 5px 10px;
+}
+
+.capital-left-post-fold {
+    border-bottom: 1px dashed #35526a;
+}
+
+.capital-left-post-fold summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 10px;
+    color: #8db4cd;
+    background: #1a2f40;
+    font-size: 0.82em;
+    text-align: left;
+}
+
+.capital-left-post-fold summary span {
+    text-align: left;
+    font-weight: 600;
+}
+
+.capital-left-post-fold summary small {
+    margin-left: auto;
+    color: #7f9ab1;
+}
+
+.capital-left-post-fold summary::-webkit-details-marker {
+    display: none;
+}
+
+.capital-left-post-fold summary::before {
+    content: "▶";
+    font-size: 0.85em;
+    color: #f0b96a;
+    margin-right: 6px;
+}
+
+.capital-left-post-fold[open] summary::before {
+    content: "▼";
+}
+
+.capital-left-post-body {
+    background: rgba(11, 22, 32, 0.5);
+}
+
+.capital-left-official {
+    width: 100%;
+    flex: 0 0 auto;
+    border: none;
+    border-bottom: 1px dashed #2f4557;
+    background: transparent;
+    color: #dfe8ee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.capital-left-official:last-child {
+    border-bottom: none;
+}
+
+.capital-left-official small {
+    color: #88a3b8;
+    font-size: 0.78em;
+    margin-left: 10px;
+}
+
+.capital-left-official.is-active,
+.capital-left-official:hover {
+    background: rgba(243, 156, 18, 0.13);
+}
+
 .county {
     stroke: #1a252f;
     stroke-width: 0.5;
@@ -284,6 +528,43 @@ input:disabled {
     font-size: 0.9em;
 }
 
+.capital-mode-switch {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.capital-mode-switch .sys-btn.active {
+    background: #f39c12;
+    color: #fff;
+    border-color: #f39c12;
+}
+
+.capital-detail-card {
+    border: 1px solid #4a667a;
+    border-radius: 8px;
+    padding: 12px;
+    background: linear-gradient(160deg, #263a4c, #1e2f3e);
+}
+
+.capital-detail-name {
+    font-size: 1.15em;
+    color: #f6d08e;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+.capital-detail-grid {
+    display: grid;
+    gap: 5px;
+}
+
+.capital-detail-grid > div {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 6px;
+}
+
 #capital-officials-list {
     display: flex;
     flex-direction: column;
@@ -343,6 +624,151 @@ input:disabled {
     border: 1px solid #34495e;
     text-align: right;
     min-width: 60px;
+}
+
+.official-holders {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    max-width: 66%;
+}
+
+.official-resume-card {
+    margin: 0;
+    min-width: 90px;
+    max-width: 100%;
+}
+
+.official-resume-summary {
+    list-style: none;
+    cursor: pointer;
+    color: #ecf0f1;
+    background: linear-gradient(135deg, #1d2d3a, #274257);
+    border: 1px solid #36556a;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 0.86em;
+    white-space: nowrap;
+}
+
+.official-resume-summary::-webkit-details-marker {
+    display: none;
+}
+
+.official-resume-body {
+    margin-top: 6px;
+    background: #13222d;
+    border: 1px solid #2c4a5f;
+    border-radius: 8px;
+    padding: 8px;
+    min-width: 260px;
+    max-width: 360px;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+}
+
+.official-resume-body > div {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 6px;
+    margin-bottom: 4px;
+    line-height: 1.35;
+}
+
+.official-resume-body > div:last-child {
+    margin-bottom: 0;
+}
+
+.resume-k {
+    color: #82a7c3;
+    font-size: 0.84em;
+}
+
+.resume-v {
+    color: #e8f1f7;
+    font-size: 0.85em;
+}
+
+/* 官员兼职详情样式 */
+.official-details {
+    flex: 1;
+    margin: 0;
+    padding: 0;
+}
+
+.official-summary {
+    cursor: pointer;
+    user-select: none;
+    font-weight: bold;
+    color: #ecf0f1;
+    background: #1a252f;
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid #34495e;
+    text-align: right;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.official-summary:hover {
+    background: #1e3a45;
+    border-color: #5d7f8d;
+}
+
+.official-summary::before {
+    content: "▶";
+    display: inline-block;
+    width: 1em;
+    transition: transform 0.2s;
+    transform: rotate(-90deg);
+}
+
+details[open] .official-summary::before {
+    transform: rotate(0deg);
+}
+
+.official-detail-content {
+    background: #1a252f;
+    border: 1px solid #34495e;
+    border-top: none;
+    padding: 5px 8px;
+    font-size: 0.9em;
+    color: #bdc3c7;
+    border-radius: 0 0 3px 3px;
+}
+
+@media (max-width: 920px) {
+    #map-container {
+        min-height: 48vh;
+    }
+
+    .capital-left-header {
+        font-size: 0.92em;
+    }
+
+    .capital-left-official {
+        padding: 8px;
+    }
+
+    .rank-list {
+        grid-template-columns: 1fr;
+    }
+
+    .official-item {
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .official-holders {
+        max-width: 100%;
+        justify-content: flex-start;
+    }
+
+    .official-resume-body {
+        min-width: 220px;
+        max-width: 92vw;
+    }
 }
 
 .local-officials-panel {
@@ -469,4 +895,40 @@ input:disabled {
     color: #95a5a6;
     font-size: 0.82em;
     margin-top: 2px;
+}
+/* 兼衔徽章与撤销按钮 */
+.concurrent-posts-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.concurrent-post-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #1d3a52, #2c5a7a);
+    border: 1px solid #4a7a9a;
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: #a8d5f7;
+    font-size: 0.88em;
+    white-space: nowrap;
+}
+
+.concurrent-remove-btn {
+    background: none;
+    border: none;
+    color: #ff6b6b;
+    cursor: pointer;
+    font-size: 1.1em;
+    padding: 0;
+    margin-left: 4px;
+    transition: color 0.2s ease;
+    line-height: 1;
+}
+
+.concurrent-remove-btn:hover {
+    color: #ff9999;
 }

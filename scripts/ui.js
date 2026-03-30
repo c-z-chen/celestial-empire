@@ -1,6 +1,13 @@
 import { BureauMap, ecoLvlMap, normalizeEconomy } from './constants.js';
 import { state, isCapitalTabActive } from './state.js';
-import { renderRosterList, renderCapitalGovernorAssignments, toggleCapitalGovernorProvince } from './officials.js';
+import {
+    renderRosterList,
+    renderCapitalGovernorAssignments,
+    toggleCapitalGovernorProvince,
+    renderCapitalOfficials,
+    isCapitalGovernorMode,
+    setCapitalMode
+} from './officials.js';
 import { setMapView, refreshTerritoryPaint, drawCapitals, highlightSelection } from './map.js';
 import { toggleMerge, attemptMerge } from './territory.js';
 
@@ -216,6 +223,10 @@ export function updateUI() {
 
 export function switchTab(tabId) {
     state.activeTab = tabId;
+    const leftPane = document.getElementById('capital-left-pane');
+    if (leftPane && tabId !== 'capital') {
+        leftPane.style.display = 'none';
+    }
     document.querySelectorAll('.admin-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
@@ -225,13 +236,9 @@ export function switchTab(tabId) {
     if (state.mergeMode) toggleMerge(state.mergeMode);
 
     if (tabId === 'capital') {
-        if (state.mapViewMode !== 'province') {
-            setMapView('province', false);
-        } else {
-            refreshTerritoryPaint();
-            drawCapitals();
-            if (state.selectedCellId !== null) highlightSelection(state.selectedCellId);
-        }
+        // 进入京官页默认展示名录模式，避免保留在上次的总督圈省模式造成困惑。
+        setCapitalMode('officials');
+        renderCapitalOfficials();
         renderCapitalGovernorAssignments();
         return;
     }
@@ -248,6 +255,9 @@ export function switchTab(tabId) {
 
 export function handleRegionClick(i) {
     if (isCapitalTabActive()) {
+        if (!isCapitalGovernorMode()) {
+            return;
+        }
         state.selectedCellId = i;
         const cell = state.countyData[i];
         if (cell && cell.provId !== null) toggleCapitalGovernorProvince(cell.provId);

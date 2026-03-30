@@ -12,9 +12,12 @@ export const SaveManager = {
             nextPrefId:                       state.nextPrefId,
             nextProvId:                       state.nextProvId,
             capitalId:                        state.capitalId,
+            capitalMode:                      state.capitalMode,
+            selectedOfficialId:               state.selectedOfficialId,
             capitalGovernorSelectedProvinces: state.capitalGovernorSelectedProvinces,
             capitalGovernorRegions:           state.capitalGovernorRegions,
-            capitalGovernorNextId:            state.capitalGovernorNextId
+            capitalGovernorNextId:            state.capitalGovernorNextId,
+            officials:                        state.officials
         };
     },
 
@@ -25,9 +28,12 @@ export const SaveManager = {
         state.nextPrefId       = d.nextPrefId;
         state.nextProvId       = d.nextProvId;
         state.capitalId        = d.capitalId;
+        state.capitalMode      = d.capitalMode || 'officials';
+        state.selectedOfficialId = d.selectedOfficialId || null;
         state.capitalGovernorSelectedProvinces = Array.isArray(d.capitalGovernorSelectedProvinces) ? d.capitalGovernorSelectedProvinces : [];
         state.capitalGovernorRegions           = Array.isArray(d.capitalGovernorRegions)           ? d.capitalGovernorRegions           : [];
         state.capitalGovernorNextId            = d.capitalGovernorNextId || (state.capitalGovernorRegions.length + 1);
+        state.officials                        = d.officials || { byId: {}, byPosition: {}, nextId: 1 };
         state.selectedCellId = null;
         state.mergeMode      = null;
         NameGen.generatedNames.clear();
