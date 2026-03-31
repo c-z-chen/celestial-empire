@@ -689,6 +689,29 @@ input:disabled {
     font-size: 0.85em;
 }
 
+.power-quick-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.quick-post-btn {
+    border: 1px solid #7a5a37;
+    background: rgba(58, 38, 18, 0.7);
+    color: #f1d1a3;
+    border-radius: 10px;
+    font-size: 0.72em;
+    padding: 1px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.quick-post-btn:hover {
+    background: rgba(86, 55, 26, 0.85);
+}
+
 /* 官员兼职详情样式 */
 .official-details {
     flex: 1;

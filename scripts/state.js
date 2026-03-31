@@ -14,6 +14,7 @@ export const state = {
     capitalGovernorSelectedProvinces: [],
     capitalGovernorRegions: [],
     capitalGovernorNextId: 1,
+    capitalSectionOpen: {},
     geoFeatures: [],
     pathGenerator: null,
     neighborsMap: {},

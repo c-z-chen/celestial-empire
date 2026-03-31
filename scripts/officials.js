@@ -72,6 +72,9 @@ function ensureOfficialsStateShape() {
     if (!Number.isInteger(state.officials.nextId) || state.officials.nextId < 1) {
         state.officials.nextId = 1;
     }
+    if (!state.capitalSectionOpen || typeof state.capitalSectionOpen !== 'object') {
+        state.capitalSectionOpen = {};
+    }
 
     Object.values(state.officials.byId).forEach(off => {
         if (!off.profile || typeof off.profile !== 'object') {
@@ -88,6 +91,7 @@ function ensureOfficialsStateShape() {
             off.concurrentPosts = [];
         }
         if (off.mainPost?.rank) {
+            ensureMinAgeForRank(off, off.mainPost.rank);
             const year = off.mainPost.acquiredYear || OFFICIAL_TIMELINE_BASE_YEAR;
             ensureExamPathForMainPost(off, off.mainPost.rank, off.mainPost.title, year);
         }
@@ -132,7 +136,19 @@ function getRankTargetAge(rank) {
     const idx = OFFICIAL_RANK_ORDER.indexOf(rank);
     if (idx < 0) return 36;
     const raw = Math.round(58 - idx * 1.8);
-    return Math.max(24, Math.min(60, raw));
+    const minAge = getMinAgeForRank(rank);
+    return Math.max(minAge, Math.min(60, raw));
+}
+
+function ensureMinAgeForRank(official, rank) {
+    if (!official) return;
+    const minAge = getMinAgeForRank(rank);
+    if (official.age >= minAge) return;
+    official.age = minAge;
+    official.birthYear = OFFICIAL_TIMELINE_BASE_YEAR - minAge;
+    if (official.profile) {
+        official.profile.birthYear = official.birthYear;
+    }
 }
 
 function estimateMainPostYear(official, rank) {
@@ -186,18 +202,6 @@ function normalizeExamPath(path = '') {
     return path;
 }
 
-function isAtLeastThirdRank(rank = '') {
-    const idx = OFFICIAL_RANK_ORDER.indexOf(rank);
-    if (idx < 0) return false;
-    return idx <= OFFICIAL_RANK_ORDER.indexOf('从三品');
-}
-
-function isAtLeastSecondRank(rank = '') {
-    const idx = OFFICIAL_RANK_ORDER.indexOf(rank);
-    if (idx < 0) return false;
-    return idx <= OFFICIAL_RANK_ORDER.indexOf('从二品');
-}
-
 function getHonoraryRequiredRank(title = '') {
     const strictTitles = [
         '少师', '少傅', '少保',
@@ -247,6 +251,18 @@ function getHanlinExamTargets(rank = '', positionTitle = '') {
         return ['进士·二甲', '进士·一甲'];
     }
     return null;
+}
+
+function getMinAgeForRank(rank = '') {
+    const minAgeByRank = {
+        '正一品': 50,
+        '从一品': 47,
+        '正二品': 44,
+        '从二品': 42,
+        '正三品': 38,
+        '从三品': 36
+    };
+    return minAgeByRank[rank] || 30;
 }
 
 function getExamTargetsForPost(rank = '', positionTitle = '') {
@@ -304,13 +320,67 @@ function ensureExamPathForMainPost(official, rank, positionTitle, appointedYear)
         ...exam,
         path: nextPath || pickExamPathByRank(rank, positionTitle),
         year: Math.max(official.birthYear + 16, Math.min(appointedYear - 1, exam.year || appointedYear - 2)),
-        attempts: Number.isInteger(exam.attempts) ? exam.attempts : (1 + Math.floor(Math.random() * 3))
     };
 }
 
 function shouldAutoGrantHonorary(title = '') {
-    const keepVacant = ['太师', '太傅', '太保', '保和殿大学士'];
-    return !keepVacant.includes(title);
+    const keepVacant = ['太师', '太傅', '太保', '保和殿大学士', '都察院右都御史', '礼部侍郎（虚衔）'];
+    const normalizedTitle = title.replace(/\s+/g, '');
+    const normalizedVacant = keepVacant.map(t => t.replace(/\s+/g, ''));
+    return !normalizedVacant.includes(normalizedTitle);
+}
+
+const STRICT_HONORARY_TITLES = new Set([
+    '少师', '少傅', '少保',
+    '太子太师', '太子太傅', '太子太保',
+    '太子少师', '太子少傅', '太子少保'
+]);
+
+const HONORARY_EXCLUDED_MAIN_TITLES = new Set([
+    '内务府总管',
+    '銮仪卫使',
+    '理藩院尚书',
+    '理藩院侍郎'
+]);
+
+const POWER_POST_TEMPLATES = [
+    { title: '管理吏部' },
+    { title: '管理户部' },
+    { title: '管理礼部' },
+    { title: '军机大臣' },
+    { title: '领班军机大臣' }
+];
+
+function addPowerPost(offId, title) {
+    const official = state.officials.byId[offId];
+    if (!official) return;
+    const rank = official.mainPost?.rank || '从一品';
+    addConcurrentPost(offId, title, rank, 'power', OFFICIAL_TIMELINE_BASE_YEAR);
+    renderCapitalLeftOfficialList();
+    renderSelectedOfficialDetail();
+}
+
+function isHonoraryCandidateDisallowed(official, title = '') {
+    if (!STRICT_HONORARY_TITLES.has(title)) return false;
+    const mainTitle = official?.mainPost?.title || '';
+    return HONORARY_EXCLUDED_MAIN_TITLES.has(mainTitle);
+}
+
+function removeVirtualLibuShilang(official, endYear = OFFICIAL_TIMELINE_BASE_YEAR) {
+    if (!official) return;
+    const virtualTitle = '礼部侍郎（虚衔）';
+    official.concurrentPosts = (official.concurrentPosts || []).filter(p => p.title !== virtualTitle);
+    if (Array.isArray(official.profile?.postTimeline)) {
+        official.profile.postTimeline.forEach(item => {
+            if (item.title === virtualTitle && !Number.isInteger(item.endYear)) {
+                item.endYear = endYear;
+            }
+        });
+    }
+    if (Array.isArray(state.officials.byPosition[virtualTitle])) {
+        state.officials.byPosition[virtualTitle] = state.officials.byPosition[virtualTitle]
+            .filter(x => !(x.offId === official.id && !x.isMain));
+    }
 }
 
 function isGrandSecretariatTitle(title = '') {
@@ -318,11 +388,9 @@ function isGrandSecretariatTitle(title = '') {
 }
 
 function isCabinetEligibleOfficial(official) {
-    const mainTitle = official?.mainPost?.title || '';
     const mainRank = official?.mainPost?.rank || '未入流';
-    const isSecretary = mainTitle.includes('尚书') || mainTitle.includes('都御史');
-    if (!isSecretary) return false;
-    if (mainRank !== '从一品') return false;
+    const rankIdx = OFFICIAL_RANK_ORDER.indexOf(mainRank);
+    if (rankIdx < 0 || rankIdx > OFFICIAL_RANK_ORDER.indexOf('从二品')) return false;
     return hasHanlinCredential(official);
 }
 
@@ -370,15 +438,22 @@ function getRuleForPost(title, type) {
 
 function weightedPickByRule(title, rank, type) {
     const rule = getRuleForPost(title, type);
+    const isGrandTitle = isGrandSecretariatTitle(title);
+    const isAssistant = title === '协办大学士';
     const pool = Object.values(state.officials.byId).filter(o => {
         if (o.status !== 'in_service') return false;
         if (o.concurrentPosts.some(p => p.title === title)) return false;
         if ((o.concurrentPosts.length || 0) >= (rule.maxConcurrent || 3)) return false;
         if (o.age < (rule.minAge || 24)) return false;
         if (type === 'honorary' && !canHoldHonoraryTitle(title, o.mainPost?.rank || '')) return false;
+        if (type === 'honorary' && isHonoraryCandidateDisallowed(o, title)) return false;
         if (type === 'honorary' && hasConflictingHonorary(o, title)) return false;
-        if (isGrandSecretariatTitle(title) && !isCabinetEligibleOfficial(o)) return false;
-        if (isGrandSecretariatTitle(title) && o.concurrentPosts.some(p => isGrandSecretariatTitle(p.title))) return false;
+        if (isGrandTitle && !isCabinetEligibleOfficial(o)) return false;
+        if (isGrandTitle && o.concurrentPosts.some(p => isGrandSecretariatTitle(p.title))) return false;
+        const mainTitle = o.mainPost?.title || '';
+        if (isGrandTitle && !isAssistant && mainTitle.includes('尚书')) return false;
+        if (isAssistant && !mainTitle.includes('尚书')) return false;
+        if (isAssistant && mainTitle.includes('大学士')) return false;
         return true;
     });
     if (pool.length === 0) return null;
@@ -386,13 +461,16 @@ function weightedPickByRule(title, rank, type) {
     const scored = pool.map(o => {
         let weight = 1;
         const mainTitle = o.mainPost?.title || '';
-        if (rule.preferredMainPosts.includes(mainTitle)) weight += 8;
-        if ((rule.preferredMainPostKeywords || []).some(k => mainTitle.includes(k))) weight += 4;
-        if (type === 'honorary' && o.age >= (rule.oldMinisterBonusAge || 55)) weight += 6;
-        weight += Math.max(0, rankScore(o.mainPost?.rank || '') - 3);
-        weight += Math.max(0, Math.floor((OFFICIAL_TIMELINE_BASE_YEAR - (o.serviceStartYear || OFFICIAL_TIMELINE_BASE_YEAR)) / 8));
+        const allowMainPostPref = !isGrandTitle || isAssistant;
+        if (allowMainPostPref && rule.preferredMainPosts.includes(mainTitle)) weight += 8;
+        if (allowMainPostPref && (rule.preferredMainPostKeywords || []).some(k => mainTitle.includes(k))) weight += 4;
+        if (allowMainPostPref && type === 'honorary' && o.age >= (rule.oldMinisterBonusAge || 55)) weight += 6;
+        if (allowMainPostPref) {
+            weight += Math.max(0, rankScore(o.mainPost?.rank || '') - 3);
+            weight += Math.max(0, Math.floor((OFFICIAL_TIMELINE_BASE_YEAR - (o.serviceStartYear || OFFICIAL_TIMELINE_BASE_YEAR)) / 8));
+        }
 
-        if (title.includes('大学士')) {
+        if (title.includes('大学士') && isAssistant) {
             if (mainTitle.includes('尚书') || mainTitle.includes('都御史')) {
                 weight += 28;
             } else {
@@ -445,6 +523,8 @@ function buildOfficialProfile(fullName, ageInput) {
         return { name: baseName, gender };
     });
 
+    const careerHistory = buildInitialCareerHistory(examPath, serviceStartYear);
+
     return {
         age,
         birthYear,
@@ -465,17 +545,52 @@ function buildOfficialProfile(fullName, ageInput) {
         personality: pickDistinctTraits(),
         entry: {
             year: serviceStartYear,
-            route: randomPick(OFFICIAL_PROFILE_POOLS.entryRoutes)
         },
         postTimeline: [],
-        careerHistory: [
-            { year: serviceStartYear, event: '入仕', detail: '初授候补' }
-        ],
+        careerHistory,
         rewardsAndPunishments: [
             { year: serviceStartYear + 2, kind: '奖', detail: randomPick(OFFICIAL_PROFILE_POOLS.meritEvents) },
             { year: serviceStartYear + 4, kind: '惩', detail: randomPick(OFFICIAL_PROFILE_POOLS.demeritEvents) }
         ]
     };
+}
+
+function buildInitialCareerHistory(examPath = '', serviceStartYear) {
+    const history = [{ year: serviceStartYear, event: '入仕', detail: '初授候补' }];
+    const isJinshi = examPath.startsWith('进士');
+    const isTopJinshi = examPath === '进士·一甲' || examPath === '进士·二甲';
+    const year1 = serviceStartYear + 1 + Math.floor(Math.random() * 2);
+    const year2 = year1 + 2 + Math.floor(Math.random() * 3);
+    const year3 = year2 + 2 + Math.floor(Math.random() * 3);
+
+    if (isJinshi) {
+        const hanlinPosts = ['翰林院编修', '翰林院修撰', '庶吉士', '翰林院检讨'];
+        const hanlinPost = isTopJinshi ? randomPick(hanlinPosts.slice(0, 3)) : randomPick(hanlinPosts);
+        history.push({ year: year1, event: '入馆', detail: `擢${hanlinPost}` });
+        if (!isTopJinshi && Math.random() < 0.55) {
+            history.push({ year: year2, event: '外放', detail: '出知县治事历练' });
+            history.push({ year: year3, event: '回京', detail: '调部院司官' });
+        } else {
+            history.push({ year: year2, event: '升转', detail: '入部院司官' });
+        }
+        return history;
+    }
+
+    const localStarts = ['知县', '知州', '县丞', '州同', '主簿'];
+    const localPost = randomPick(localStarts);
+    history.push({ year: year1, event: '外放', detail: `外放${localPost}` });
+
+    if (examPath === '举人' || examPath === '贡生') {
+        history.push({ year: year2, event: '历练', detail: '署理知府或道员' });
+        history.push({ year: year3, event: '回京', detail: '入部院供职' });
+        return history;
+    }
+
+    history.push({ year: year2, event: '历练', detail: '升补州府属官' });
+    if (Math.random() < 0.5) {
+        history.push({ year: year3, event: '回京', detail: '候补京职' });
+    }
+    return history;
 }
 
 function renderResumeCard(offId) {
@@ -500,10 +615,10 @@ function renderResumeCard(offId) {
                 <div><span class="resume-k">本官</span><span class="resume-v">${mainPost}</span></div>
                 <div><span class="resume-k">兼衔</span><span class="resume-v">${conc}</span></div>
                 <div><span class="resume-k">出身</span><span class="resume-v">${profile.birthYear || '未知'}年生，${profile.birthPlace || '未知'}，${profile.birthStatus || '未知'}</span></div>
-                <div><span class="resume-k">科举</span><span class="resume-v">${exam.path || '未知'}（${exam.year || '未知'}），应试${exam.attempts || '未知'}次</span></div>
+                <div><span class="resume-k">科举</span><span class="resume-v">${exam.path || '未知'}（${exam.year || '未知'}）</span></div>
                 <div><span class="resume-k">家族</span><span class="resume-v">父${family.father || '未知'}，母${family.mother || '未知'}，配偶${family.spouse || '未知'}，子女${childrenList}</span></div>
                 <div><span class="resume-k">性格</span><span class="resume-v">${personality}</span></div>
-                <div><span class="resume-k">入仕</span><span class="resume-v">${entry.year || '未知'}年，${entry.route || '未知'}</span></div>
+                <div><span class="resume-k">入仕</span><span class="resume-v">${entry.year || '未知'}年</span></div>
                 <div><span class="resume-k">历任</span><span class="resume-v">${lastCareer}</span></div>
             </div>
         </details>
@@ -514,12 +629,17 @@ function ensureCapitalOfficialsInitialized() {
     ensureOfficialsStateShape();
     if (Object.keys(state.officials.byId).length > 0) return;
 
+    const vacantStandingTitles = new Set(['保和殿大学士']);
+
     for (const [rank, jobs] of Object.entries(officialData)) {
         const standingJobs = jobs.filter(job => (job.type || 'standing') === 'standing');
         standingJobs.forEach(job => {
+            if (vacantStandingTitles.has(job.title)) return;
             const slots = getJobSlots(job);
+            const minAge = getMinAgeForRank(rank);
             for (let i = 0; i < slots; i++) {
-                const offId = createOfficial(NameGen.person());
+                const age = minAge + Math.floor(Math.random() * 8);
+                const offId = createOfficial(NameGen.person(), age);
                 const official = state.officials.byId[offId];
                 const appointYear = estimateMainPostYear(official, rank);
                 assignMainPost(offId, job.title, rank, 'standing', appointYear);
@@ -591,9 +711,15 @@ function getTimelineText(official) {
     const timeline = [...(official.profile?.postTimeline || [])]
         .sort((a, b) => (a.startYear || 0) - (b.startYear || 0));
     if (timeline.length === 0) return '暂无任官记录';
+    const tagMap = {
+        standing: '本官',
+        honorary: '虚衔',
+        power: '实权',
+        concurrent: '兼衔'
+    };
     return timeline.map(item => {
         const end = Number.isInteger(item.endYear) ? item.endYear : '今';
-        const tag = item.type === 'standing' ? '本官' : '兼衔';
+        const tag = tagMap[item.type] || '兼衔';
         return `${item.startYear}-${end} ${item.title}（${tag}）`;
     }).join('；');
 }
@@ -602,6 +728,7 @@ function promptGrantHonoraryTitle(title, rank) {
     const candidates = Object.values(state.officials.byId)
         .filter(o => o.status === 'in_service')
         .filter(o => !(o.concurrentPosts || []).some(p => p.title === title))
+        .filter(o => !isHonoraryCandidateDisallowed(o, title))
         .filter(o => !hasConflictingHonorary(o, title))
         .filter(o => canHoldHonoraryTitle(title, o.mainPost?.rank || ''))
         .sort((a, b) => rankScore(b.mainPost?.rank || '未入流') - rankScore(a.mainPost?.rank || '未入流'));
@@ -630,6 +757,7 @@ function promptGrantHonoraryTitle(title, rank) {
 
 function promptGrantCabinetTitle(title, rank) {
     const isAcademician = title.includes('内阁学士') && !title.includes('大学士');
+    const isAssistant = title === '协办大学士';
     
     const candidates = Object.values(state.officials.byId)
         .filter(o => o.status === 'in_service')
@@ -639,6 +767,10 @@ function promptGrantCabinetTitle(title, rank) {
                 const mt = o.mainPost?.title || '';
                 return mt.includes('侍郎') || mt.includes('詹事') || mt.includes('翰林院') || mt.includes('内阁侍读') || mt.includes('国子监');
             } else {
+                const mainTitle = o.mainPost?.title || '';
+                if (isAssistant && !mainTitle.includes('尚书')) return false;
+                if (isAssistant && mainTitle.includes('大学士')) return false;
+                if (!isAssistant && mainTitle.includes('尚书')) return false;
                 return !o.concurrentPosts.some(p => isGrandSecretariatTitle(p.title)) && isCabinetEligibleOfficial(o);
             }
         })
@@ -690,21 +822,32 @@ function renderSelectedOfficialDetail() {
         .map(x => `${x.year} ${x.kind}${x.detail}`)
         .join('；') || '暂无';
 
-    const concurrentHtml = (official.concurrentPosts && official.concurrentPosts.length > 0)
-        ? official.concurrentPosts.map(p => `<span class="concurrent-post-badge" data-offid="${official.id}" data-title="${p.title}">${p.title}<button class="concurrent-remove-btn" title="撤销此衔">✕</button></span>`).join('')
-        : '无';
+    const posts = official.concurrentPosts || [];
+    const renderPostBadges = (items) => (
+        items.length > 0
+            ? items.map(p => `<span class="concurrent-post-badge" data-offid="${official.id}" data-title="${p.title}">${p.title}<button class="concurrent-remove-btn" title="撤销此衔">✕</button></span>`).join('')
+            : '无'
+    );
+    const concurrentHtml = renderPostBadges(posts.filter(p => (p.type || 'concurrent') === 'concurrent'));
+    const honoraryHtml = renderPostBadges(posts.filter(p => p.type === 'honorary'));
+    const powerHtml = renderPostBadges(posts.filter(p => p.type === 'power'));
+    const powerQuickHtml = POWER_POST_TEMPLATES
+        .map(t => `<button class="quick-post-btn" data-id="${official.id}" data-type="power" data-title="${t.title}">${t.title}</button>`)
+        .join('');
 
     detailContainer.innerHTML = `
         <div class="capital-detail-card">
             <div class="capital-detail-name">${official.name}</div>
             <div class="capital-detail-grid">
                 <div><span class="resume-k">本官</span><span class="resume-v">${official.mainPost?.title || '未授实职'}</span></div>
-                <div><span class="resume-k" style="display:flex;align-items:center;gap:4px;">兼衔<button class="add-concurrent-btn" data-id="${official.id}" style="font-size:0.8em;padding:0 2px;cursor:pointer;background:transparent;border:1px solid #7f8c8d;border-radius:3px;color:#f39c12;line-height:1;" title="加衔">(+)</button></span><span class="resume-v concurrent-posts-container">${concurrentHtml}</span></div>
+                <div><span class="resume-k" style="display:flex;align-items:center;gap:4px;">兼衔<button class="add-concurrent-btn" data-id="${official.id}" data-type="concurrent" style="font-size:0.8em;padding:0 2px;cursor:pointer;background:transparent;border:1px solid #7f8c8d;border-radius:3px;color:#f39c12;line-height:1;" title="加衔">(+)</button></span><span class="resume-v concurrent-posts-container">${concurrentHtml}</span></div>
+                <div><span class="resume-k" style="display:flex;align-items:center;gap:4px;">虚衔<button class="add-concurrent-btn" data-id="${official.id}" data-type="honorary" style="font-size:0.8em;padding:0 2px;cursor:pointer;background:transparent;border:1px solid #7f8c8d;border-radius:3px;color:#f39c12;line-height:1;" title="加衔">(+)</button></span><span class="resume-v concurrent-posts-container">${honoraryHtml}</span></div>
+                <div><span class="resume-k" style="display:flex;align-items:center;gap:4px;">实权<button class="add-concurrent-btn" data-id="${official.id}" data-type="power" style="font-size:0.8em;padding:0 2px;cursor:pointer;background:transparent;border:1px solid #7f8c8d;border-radius:3px;color:#f39c12;line-height:1;" title="加衔">(+)</button></span><span class="resume-v concurrent-posts-container">${powerHtml}<div class="power-quick-buttons">${powerQuickHtml}</div></span></div>
                 <div><span class="resume-k">出生</span><span class="resume-v">${profile.birthYear || official.birthYear || '未知'}年，${profile.birthPlace || '未知'}，${profile.birthStatus || '未知'}</span></div>
-                <div><span class="resume-k">科举</span><span class="resume-v">${exam.path || '未知'}（${exam.year || '未知'}），应试${exam.attempts || '未知'}次</span></div>
+                <div><span class="resume-k">科举</span><span class="resume-v">${exam.path || '未知'}（${exam.year || '未知'}）</span></div>
                 <div><span class="resume-k">家族</span><span class="resume-v">父${family.father || '未知'}，母${family.mother || '未知'}，配偶${family.spouse || '未知'}，子女${children}</span></div>
                 <div><span class="resume-k">性格</span><span class="resume-v">${(profile.personality || []).join('、') || '未知'}</span></div>
-                <div><span class="resume-k">入仕</span><span class="resume-v">${profile.entry?.year || official.serviceStartYear || '未知'}年，${profile.entry?.route || '未知'}</span></div>
+                <div><span class="resume-k">入仕</span><span class="resume-v">${profile.entry?.year || official.serviceStartYear || '未知'}年</span></div>
                 <div><span class="resume-k">历任</span><span class="resume-v">${getTimelineText(official)}</span></div>
                 <div><span class="resume-k">奖惩</span><span class="resume-v">${rewards}</span></div>
             </div>
@@ -714,7 +857,16 @@ function renderSelectedOfficialDetail() {
     detailContainer.querySelectorAll('.add-concurrent-btn').forEach(btn => {
         btn.addEventListener('click', (ev) => {
             ev.stopPropagation();
-            promptAddConcurrentForOfficial(btn.dataset.id);
+            promptAddPostForOfficial(btn.dataset.id, btn.dataset.type || 'concurrent');
+        });
+    });
+
+    detailContainer.querySelectorAll('.quick-post-btn').forEach(btn => {
+        btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const offId = btn.dataset.id;
+            const title = btn.dataset.title;
+            addPowerPost(offId, title);
         });
     });
 
@@ -743,22 +895,45 @@ function renderCapitalLeftOfficialList() {
             .filter(Boolean)
     );
 
+    const sectionState = state.capitalSectionOpen || {};
+    Array.from(listContainer.querySelectorAll('.capital-honorary-fold'))
+        .forEach(node => {
+            if (node.dataset.foldKey) {
+                sectionState[node.dataset.foldKey] = node.open;
+            }
+        });
+    state.capitalSectionOpen = sectionState;
+
     const positionOrderMap = getPositionOrderMap();
 
     const honoraryTitles = {};
-    const cabinetConcurrent = {};
+    const honoraryPrestige = {};
+    const centralTitles = {};
     Object.entries(officialData).forEach(([rank, positions]) => {
         positions.forEach(pos => {
             if (pos.type === 'honorary') {
-                honoraryTitles[pos.title] = { rank, holders: [] };
+                if (getHonoraryGroup(pos.title)) {
+                    honoraryPrestige[pos.title] = { rank, holders: [] };
+                } else {
+                    honoraryTitles[pos.title] = { rank, holders: [] };
+                }
             }
-            if (pos.type === 'concurrent' && (pos.title.includes('大学士') || pos.title.includes('内阁学士'))) {
-                cabinetConcurrent[pos.title] = { rank, holders: [] };
+            if (pos.title.includes('大学士')) {
+                centralTitles[pos.title] = { rank, type: pos.type || 'standing', holders: [] };
             }
         });
     });
 
     Object.values(state.officials.byId).forEach(off => {
+        const mainTitle = off.mainPost?.title || '';
+        if (centralTitles[mainTitle]) {
+            centralTitles[mainTitle].holders.push({
+                name: off.name,
+                rank: off.mainPost?.rank || '未入流',
+                mainPost: mainTitle,
+                acquiredYear: off.mainPost?.acquiredYear || '未知'
+            });
+        }
         off.concurrentPosts?.forEach(post => {
             if (honoraryTitles[post.title]) {
                 honoraryTitles[post.title].holders.push({
@@ -767,8 +942,15 @@ function renderCapitalLeftOfficialList() {
                     acquiredYear: post.acquiredYear
                 });
             }
-            if (cabinetConcurrent[post.title]) {
-                cabinetConcurrent[post.title].holders.push({
+            if (honoraryPrestige[post.title]) {
+                honoraryPrestige[post.title].holders.push({
+                    name: off.name,
+                    rank: off.mainPost?.rank || '未入流',
+                    acquiredYear: post.acquiredYear
+                });
+            }
+            if (centralTitles[post.title]) {
+                centralTitles[post.title].holders.push({
                     name: off.name,
                     rank: off.mainPost?.rank || '未入流',
                     mainPost: off.mainPost?.title || '未授实职',
@@ -778,25 +960,42 @@ function renderCapitalLeftOfficialList() {
         });
     });
 
-    const cabinetSection = Object.keys(cabinetConcurrent).length > 0 ? `
-        <details class="capital-honorary-fold" open>
-            <summary>中枢加衔（大学士）</summary>
+    const centralSection = Object.keys(centralTitles).length > 0 ? `
+        <details class="capital-honorary-fold" data-fold-key="central">
+            <summary>中枢</summary>
             <div class="capital-honorary-body">
-                ${Object.entries(cabinetConcurrent).map(([title, info]) => {
+                ${Object.entries(centralTitles).map(([title, info]) => {
                     const holders = info.holders.length > 0
-                        ? info.holders.map(h => `<span class="honorary-holder">${h.name}（${h.mainPost}，${h.acquiredYear}）</span>`).join('')
+                        ? info.holders.map(h => `<span class="honorary-holder">${h.name}（${h.mainPost || title}，${h.acquiredYear}）</span>`).join('')
                         : '<span class="honorary-empty">暂缺</span>';
-                    return `<div class="honorary-title-item"><strong>${title}</strong><button class="cabinet-grant-btn" data-title="${title}" data-rank="${info.rank}">授予</button><br/>${holders}</div>`;
+                    const grantBtn = info.type === 'concurrent'
+                        ? `<button class="cabinet-grant-btn" data-title="${title}" data-rank="${info.rank}">授予</button>`
+                        : '';
+                    return `<div class="honorary-title-item"><strong>${title}</strong>${grantBtn}<br/>${holders}</div>`;
                 }).join('')}
             </div>
         </details>
     ` : '';
 
     const honorarySection = Object.keys(honoraryTitles).length > 0 ? `
-        <details class="capital-honorary-fold" open>
-            <summary>虚衔荣誉职位</summary>
+        <details class="capital-honorary-fold" data-fold-key="honorary">
+            <summary>虚衔</summary>
             <div class="capital-honorary-body">
                 ${Object.entries(honoraryTitles).map(([title, info]) => {
+                    const holders = info.holders.length > 0 
+                        ? info.holders.map(h => `<span class="honorary-holder">${h.name}（${h.rank}，${h.acquiredYear}）</span>`).join('')
+                        : '<span class="honorary-empty">虚位以待</span>';
+                    return `<div class="honorary-title-item"><strong>${title}</strong><button class="honorary-grant-btn" data-title="${title}" data-rank="${info.rank}">授予</button><br/>${holders}</div>`;
+                }).join('')}
+            </div>
+        </details>
+    ` : '';
+
+    const honoraryPrestigeSection = Object.keys(honoraryPrestige).length > 0 ? `
+        <details class="capital-honorary-fold" data-fold-key="prestige">
+            <summary>荣誉职位</summary>
+            <div class="capital-honorary-body">
+                ${Object.entries(honoraryPrestige).map(([title, info]) => {
                     const holders = info.holders.length > 0 
                         ? info.holders.map(h => `<span class="honorary-holder">${h.name}（${h.rank}，${h.acquiredYear}）</span>`).join('')
                         : '<span class="honorary-empty">虚位以待</span>';
@@ -812,6 +1011,9 @@ function renderCapitalLeftOfficialList() {
         if (!grouped[rank]) grouped[rank] = [];
         grouped[rank].push(off);
     });
+
+    const assistantOfficials = Object.values(state.officials.byId)
+        .filter(off => (off.concurrentPosts || []).some(p => p.title === '协办大学士'));
 
     const visibleRanks = OFFICIAL_RANK_ORDER
         .filter(rank => Array.isArray(grouped[rank]) && grouped[rank].length > 0)
@@ -831,6 +1033,10 @@ function renderCapitalLeftOfficialList() {
             if (!posGrouped[pos]) posGrouped[pos] = [];
             posGrouped[pos].push(off);
         });
+
+        if (rank === '正一品' && assistantOfficials.length > 0) {
+            posGrouped['协办大学士'] = assistantOfficials;
+        }
 
         const posSections = Object.keys(posGrouped)
             .sort((a, b) => (positionOrderMap.get(a) ?? 9999) - (positionOrderMap.get(b) ?? 9999))
@@ -863,7 +1069,7 @@ function renderCapitalLeftOfficialList() {
         return `<div id="capital-rank-${rankIdx}" class="capital-left-rank"><div class="capital-left-rank-title">${rank}</div>${posSections}</div>`;
     }).join('');
 
-    listContainer.innerHTML = (cabinetSection + honorarySection + rankBlocks) || '<div class="gov-empty">暂无京官</div>';
+    listContainer.innerHTML = (centralSection + honorarySection + honoraryPrestigeSection + rankBlocks) || '<div class="gov-empty">暂无京官</div>';
     jumpsContainer.innerHTML = visibleRanks
         .map((rank, idx) => `<button class="capital-rank-jump" data-target="capital-rank-${idx}">${rank}</button>`)
         .join('');
@@ -900,6 +1106,23 @@ function renderCapitalLeftOfficialList() {
         if (openedFoldKeys.has(node.dataset.foldKey)) {
             node.open = true;
         }
+    });
+
+    listContainer.querySelectorAll('.capital-honorary-fold').forEach(node => {
+        const key = node.dataset.foldKey;
+        if (key && Object.prototype.hasOwnProperty.call(state.capitalSectionOpen, key)) {
+            node.open = !!state.capitalSectionOpen[key];
+            return;
+        }
+        node.open = true;
+    });
+
+    listContainer.querySelectorAll('.capital-honorary-fold').forEach(node => {
+        const key = node.dataset.foldKey;
+        if (!key) return;
+        node.addEventListener('toggle', () => {
+            state.capitalSectionOpen[key] = node.open;
+        });
     });
 }
 
@@ -988,7 +1211,7 @@ export function renderCapitalGovernorAssignments() {
     if (state.capitalGovernorSelectedProvinces.length === 0) {
         draftContainer.innerHTML = `<div class="gov-empty">点击左侧省份圈定辖区（1-3省可成总督辖区）</div>`;
     } else {
-        const draftTitle = `${buildGovernorAbbrByProvIds(state.capitalGovernorSelectedProvinces)}总督`;
+        const draftTitle = `${buildGovernorAbbrByProvIds(state.capitalGovernorSelectedProvinces)}总督（领兵部右侍郎兼都察院右都御史）`;
         draftContainer.innerHTML = `
             <div class="gov-item gov-item-draft">
                 <span class="gov-badge">拟</span>
@@ -1044,7 +1267,7 @@ export function establishCapitalGovernorRegion() {
     }
 
     const color = CAPITAL_REGION_COLORS[(state.capitalGovernorNextId - 1) % CAPITAL_REGION_COLORS.length];
-    const title = `${buildGovernorAbbrByProvIds(state.capitalGovernorSelectedProvinces)}总督`;
+    const title = `${buildGovernorAbbrByProvIds(state.capitalGovernorSelectedProvinces)}总督（领兵部右侍郎兼都察院右都御史）`;
     state.capitalGovernorRegions.push({
         id: state.capitalGovernorNextId++,
         provIds: [...state.capitalGovernorSelectedProvinces],
@@ -1121,6 +1344,8 @@ export function assignMainPost(offId, positionTitle, rank, type = 'standing', ye
     if (!state.officials.byId[offId]) return;
 
     const official = state.officials.byId[offId];
+    ensureMinAgeForRank(official, rank);
+    const prevMainTitle = official.mainPost?.title || '';
     const minYear = Math.max(
         official.serviceStartYear || OFFICIAL_TIMELINE_BASE_YEAR - 10,
         (official.profile?.examination?.year || 0) + 1
@@ -1132,6 +1357,10 @@ export function assignMainPost(offId, positionTitle, rank, type = 'standing', ye
             .filter(x => !(x.offId === offId && x.isMain));
         const activeMain = official.profile?.postTimeline?.find(x => x.type === 'standing' && !Number.isInteger(x.endYear));
         if (activeMain) activeMain.endYear = normalizedYear - 1;
+    }
+
+    if (prevMainTitle === '内阁学士' && positionTitle !== '内阁学士') {
+        removeVirtualLibuShilang(official, normalizedYear - 1);
     }
     
     official.mainPost = {
@@ -1168,6 +1397,10 @@ export function assignMainPost(offId, positionTitle, rank, type = 'standing', ye
         name: state.officials.byId[offId].name,
         isMain: true
     });
+
+    if (positionTitle === '内阁学士' && official.mainPost?.title !== '礼部侍郎') {
+        addConcurrentPost(offId, '礼部侍郎（虚衔）', '从二品', 'honorary', normalizedYear, true);
+    }
 }
 
 /**
@@ -1178,7 +1411,7 @@ export function assignMainPost(offId, positionTitle, rank, type = 'standing', ye
  * @param {string} type 职位类型
  * @param {number} year 获得年份
  */
-export function addConcurrentPost(offId, positionTitle, rank, type = 'concurrent', year = 1800) {
+export function addConcurrentPost(offId, positionTitle, rank, type = 'concurrent', year = 1800, skipExtras = false) {
     if (!state.officials.byId[offId]) return;
 
     const official = state.officials.byId[offId];
@@ -1284,25 +1517,32 @@ export function revokeConcurrentPostFromOfficial(offId, positionTitle) {
             .filter(x => !(x.offId === offId && !x.isMain));
     }
 
+    if (positionTitle === '内阁学士') {
+        if (official.mainPost?.title !== '礼部侍郎') {
+            removeVirtualLibuShilang(official, OFFICIAL_TIMELINE_BASE_YEAR);
+        }
+    }
+
     renderCapitalLeftOfficialList();
     renderSelectedOfficialDetail();
 }
 
-function promptAddConcurrentForOfficial(offId) {
-    const titleRaw = window.prompt("请输入要加的兼衔/虚衔名称（如：太子太保，内阁学士等）：");
+function promptAddPostForOfficial(offId, defaultType = 'concurrent') {
+    const titleRaw = window.prompt("请输入要加的兼衔/虚衔/实权名称（如：太子太保，内阁学士，管理户部等）：");
     if (!titleRaw) return;
     const title = titleRaw.trim();
     if (!title) return;
     
     // Find the rank for this title from officialData
-    let rank = '从一品'; // Default 
-    let type = 'concurrent';
+    let rank = '从一品';
+    let type = defaultType;
     let found = false;
     for (const [r, list] of Object.entries(officialData)) {
         const item = list.find(p => p.title === title);
         if (item) {
             rank = r;
-            type = item.type === 'honorary' ? 'honorary' : 'concurrent';
+            if (item.type === 'honorary') type = 'honorary';
+            else if (item.type === 'concurrent') type = 'concurrent';
             found = true;
             break;
         }

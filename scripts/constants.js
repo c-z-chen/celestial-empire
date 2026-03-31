@@ -89,12 +89,12 @@ export const officialData = {
         { title: "太师", type: "honorary" },
         { title: "太傅", type: "honorary" },
         { title: "太保", type: "honorary" },
-        { title: "保和殿大学士", type: "concurrent", quota: 1 },
-        { title: "文华殿大学士", type: "concurrent", quota: 1 },
-        { title: "武英殿大学士", type: "concurrent", quota: 1 },
-        { title: "体仁阁大学士", type: "concurrent", quota: 1 },
-        { title: "文渊阁大学士", type: "concurrent", quota: 1 },
-        { title: "东阁大学士", type: "concurrent", quota: 1 },
+        { title: "保和殿大学士", type: "standing", quota: 1 },
+        { title: "文华殿大学士", type: "standing", quota: 1 },
+        { title: "武英殿大学士", type: "standing", quota: 1 },
+        { title: "体仁阁大学士", type: "standing", quota: 1 },
+        { title: "文渊阁大学士", type: "standing", quota: 1 },
+        { title: "东阁大学士", type: "standing", quota: 1 },
         { title: "协办大学士", type: "concurrent", quota: 2 }
     ],
     "从一品": [
@@ -112,7 +112,7 @@ export const officialData = {
         { title: "工部尚书", type: "standing", quota: 1 },
         { title: "理藩院尚书", type: "standing", quota: 1 },
         { title: "都察院左都御史", type: "standing", quota: 1 },
-        { title: "都察院右都御史", type: "standing", quota: 1 }
+        { title: "都察院右都御史", type: "concurrent", quota: 1 }
     ],
     "正二品": [
         { title: "太子少师", type: "honorary" },
@@ -129,8 +129,9 @@ export const officialData = {
         { title: "刑部侍郎", type: "standing", quota: 2 },
         { title: "工部侍郎", type: "standing", quota: 2 },
         { title: "理藩院侍郎", type: "standing", quota: 2 },
-        { title: "内阁学士", type: "concurrent", quota: 6 },
-        { title: "翰林院掌院学士", type: "standing", quota: 2 }
+        { title: "内阁学士", type: "standing", quota: 6 },
+        { title: "翰林院掌院学士", type: "standing", quota: 1 },
+        { title: "礼部侍郎（虚衔）", type: "honorary", quota: 1 }
     ],
     "正三品": [
         { title: "都察院副都御史", type: "standing", quota: 4 },
@@ -368,32 +369,26 @@ export const OFFICIAL_ASSIGNMENT_RULES = {
     },
     byTitle: {
         "保和殿大学士": {
-            preferredMainPosts: ["吏部尚书", "户部尚书", "礼部尚书", "兵部尚书", "刑部尚书", "工部尚书"],
             minAge: 40,
             maxConcurrent: 2
         },
         "文华殿大学士": {
-            preferredMainPosts: ["吏部尚书", "礼部尚书", "都察院左都御史"],
             minAge: 40,
             maxConcurrent: 2
         },
         "武英殿大学士": {
-            preferredMainPosts: ["兵部尚书", "工部尚书", "都察院右都御史"],
             minAge: 40,
             maxConcurrent: 2
         },
         "体仁阁大学士": {
-            preferredMainPosts: ["吏部尚书", "户部尚书", "礼部尚书"],
             minAge: 40,
             maxConcurrent: 2
         },
         "文渊阁大学士": {
-            preferredMainPosts: ["吏部尚书", "户部尚书", "礼部尚书", "兵部尚书", "刑部尚书", "工部尚书"],
             minAge: 42,
             maxConcurrent: 2
         },
         "东阁大学士": {
-            preferredMainPostKeywords: ["尚书", "御史"],
             minAge: 38,
             maxConcurrent: 2
         },
@@ -406,6 +401,11 @@ export const OFFICIAL_ASSIGNMENT_RULES = {
             preferredMainPostKeywords: ["侍郎", "郎中", "给事中", "学士"],
             minAge: 32,
             maxConcurrent: 2
+        },
+        "翰林院掌院学士": {
+            preferredMainPostKeywords: ["大学士", "尚书", "侍郎"],
+            minAge: 38,
+            maxConcurrent: 1
         }
     }
 };
@@ -417,7 +417,7 @@ export const OFFICIAL_PROFILE_POOLS = {
     birthStatus: ["寒门", "小康士绅", "世宦旁支", "书香门第"],
     examPaths: ["进士", "举人", "贡生", "荫生"],
     personalities: ["谨慎", "果决", "清峻", "宽厚", "务实", "好学", "强项", "圆融", "廉介", "沉毅", "峻急", "宽和"],
-    entryRoutes: ["科甲", "部选", "保举", "捐纳后实授"],
+    // entryRoutes: ["科甲", "部选", "保举", "捐纳后实授"],
     meritEvents: ["平粜赈荒有功", "清理积案有功", "厘金整顿有功", "军需调度得力", "学政考课优等"],
     demeritEvents: ["考成殿后", "失察属吏", "奏报迟延", "赈务不周", "处分从宽记过"]
 };
