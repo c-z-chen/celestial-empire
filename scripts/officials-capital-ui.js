@@ -362,7 +362,7 @@ function renderCapitalLeftOfficialList() {
         .filter(off => (off.concurrentPosts || []).some(p => p.title === '协办大学士'));
 
     const visibleRanks = OFFICIAL_RANK_ORDER
-        .filter(rank => Array.isArray(grouped[rank]) && grouped[rank].length > 0)
+        .filter(rank => Array.isArray(grouped[rank]) && grouped[rank].length > 0);
     const rankBlocks = visibleRanks.map((rank, rankIdx) => {
         const rankOfficials = [...grouped[rank]].sort((a, b) => {
             const ao = positionOrderMap.get(a.mainPost?.title || '') ?? 9999;
@@ -494,7 +494,7 @@ function promptAddPostForOfficial(offId, defaultType = 'concurrent') {
     }
     
     if (!found) {
-        if (!window.confirm(`未在官制库中找到名[\${title}]，确定要强行授予吗？`)) {
+        if (!window.confirm(`未在官制库中找到名[${title}]，确定要强行授予吗？`)) {
             return;
         }
     }
