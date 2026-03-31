@@ -320,6 +320,42 @@ export const OFFICIAL_RANK_ORDER = [
     "正七品", "从七品", "正八品", "从八品", "正九品", "从九品", "未入流"
 ];
 
+export const OFFICIAL_POSITION_RANK_MAP = [
+    { pattern: /尚书/, rank: '从一品' },
+    { pattern: /侍郎/, rank: '从二品' },
+    { pattern: /郎中/, rank: '正五品' },
+    { pattern: /员外郎/, rank: '从五品' },
+    { pattern: /主事/, rank: '正六品' },
+    { pattern: /知府/, rank: '正四品' },
+    { pattern: /道员/, rank: '正四品' },
+    { pattern: /同知/, rank: '正五品' },
+    { pattern: /知州/, rank: '正六品' },
+    { pattern: /州同/, rank: '从七品' },
+    { pattern: /知县/, rank: '正七品' },
+    { pattern: /县丞/, rank: '正八品' },
+    { pattern: /教谕/, rank: '正八品' },
+    { pattern: /训导/, rank: '从八品' },
+    { pattern: /主簿/, rank: '正九品' },
+    { pattern: /典史/, rank: '未入流' },
+    { pattern: /太常寺博士/, rank: '正七品' },
+    { pattern: /国子监助教/, rank: '从七品' },
+    { pattern: /国子监学正/, rank: '正八品' },
+    { pattern: /内阁典籍/, rank: '正七品' },
+    { pattern: /翰林院编修/, rank: '正七品' },
+    { pattern: /翰林院检讨/, rank: '从七品' },
+    { pattern: /翰林院修撰/, rank: '从六品' },
+    { pattern: /翰林院待诏/, rank: '从九品' },
+    { pattern: /翰林院典簿/, rank: '从八品' },
+    { pattern: /署理州同/, rank: '从七品' },
+    { pattern: /署理县丞/, rank: '正八品' },
+    { pattern: /署理知州/, rank: '正六品' },
+    { pattern: /升补同知/, rank: '正五品' },
+    { pattern: /升补知府/, rank: '正四品' },
+    { pattern: /署理道员/, rank: '正四品' },
+    { pattern: /入部院行走/, rank: '正七品' },
+    { pattern: /留馆供职/, rank: '从七品' }
+];
+
 export const EXAMINATION_HIERARCHY = {
     "进士·一甲": 100,
     "进士·二甲": 95,
@@ -415,9 +451,12 @@ export const OFFICIAL_PROFILE_POOLS = {
         "直隶", "山东", "山西", "河南", "陕西", "甘肃", "河北", "辽宁", "吉林", "黑龙江", "内蒙古", "新疆", "云南", "贵州", "四川", "湖南", "湖北", "安徽", "江苏", "江西", "浙江", "福建", "广东", "广西",
     ],
     birthStatus: ["寒门", "小康士绅", "世宦旁支", "书香门第"],
-    examPaths: ["进士", "举人", "贡生", "荫生"],
+    examPaths: ["进士", "举人", "贡生", "荫生", "捐纳"],
     personalities: ["谨慎", "果决", "清峻", "宽厚", "务实", "好学", "强项", "圆融", "廉介", "沉毅", "峻急", "宽和"],
-    // entryRoutes: ["科甲", "部选", "保举", "捐纳后实授"],
+        hanlinEntryEvents: ["充修国史", "侍讲经筵", "校勘实录", "供职起居注"],
+        sanguanResults: ["留馆", "改授编修", "改授检讨", "留任编修", "留任检讨"],
+        jingchaResults: ["考列优等", "考列称职", "考列平常", "赏记一次", "议叙一次"],
+        waifangPerformance: ["清丈赋役", "平粜赈务", "整饬漕务", "清理积案", "抑制陋规", "剿抚得宜"],
     meritEvents: ["平粜赈荒有功", "清理积案有功", "厘金整顿有功", "军需调度得力", "学政考课优等"],
     demeritEvents: ["考成殿后", "失察属吏", "奏报迟延", "赈务不周", "处分从宽记过"]
 };
