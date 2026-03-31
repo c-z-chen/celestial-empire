@@ -197,11 +197,13 @@ export function renderMap() {
         .attr("stroke", "#ffffff")
         .attr("stroke-width", 0.3)
         .on("click", function(event) {
-            const rawId = event.currentTarget?.dataset?.cellId;
+            const rawId =
+                this?.dataset?.cellId ??
+                event?.currentTarget?.dataset?.cellId;
             if (rawId == null) return;
-            let i = Number(rawId);
-            if (!Number.isInteger(i) || i < 0 || i >= state.geoFeatures.length) return;
-            withUI(({ handleRegionClick }) => handleRegionClick(i));
+            const cellIndex = Number.parseInt(rawId, 10);
+            if (!Number.isInteger(cellIndex) || cellIndex < 0 || cellIndex >= state.geoFeatures.length) return;
+            withUI(({ handleRegionClick }) => handleRegionClick(cellIndex));
         });
 
     state.currentTransform = d3.zoomIdentity;
