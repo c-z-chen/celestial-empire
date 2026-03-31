@@ -10,7 +10,7 @@
 <body>
 
     <div id="map-container">
-        <div id="capital-left-pane" class="capital-left-pane" style="display:none;">
+        <div id="capital-left-pane" class="capital-left-pane hidden">
             <div class="capital-left-header">京官名录</div>
             <div id="capital-left-rank-jumps" class="capital-left-rank-jumps"></div>
             <div id="capital-left-official-list" class="capital-left-list"></div>
@@ -44,15 +44,15 @@
 
             <div id="capital-official-detail" class="local-officials-panel"></div>
 
-            <div id="capital-governor-workbench" class="local-officials-panel" style="display:none;">
+            <div id="capital-governor-workbench" class="local-officials-panel hidden">
                 <div class="panel-title">总督任命抬头（1-3省可立）</div>
                 <div id="capital-governor-titles"></div>
-                <button id="btn-establish-governor-region" class="action-btn btn-create" style="margin-top: 12px;" disabled>设立总督辖区</button>
-                <div class="panel-title" style="margin-top: 14px;">已设总督辖区</div>
+                <button id="btn-establish-governor-region" class="action-btn btn-create mt-12" disabled>设立总督辖区</button>
+                <div class="panel-title mt-14">已设总督辖区</div>
                 <div id="capital-governor-records"></div>
             </div>
 
-            <div id="capital-officials-list" style="display:none;"></div>
+            <div id="capital-officials-list" class="hidden"></div>
         </div>
 
         <div id="tab-county" class="tab-content active">
@@ -77,12 +77,12 @@
                 <div id="county-officials-list" class="roster-list"></div>
             </div>
 
-            <hr style="border-color: #7f8c8d; margin: 15px 0;">
+            <hr class="section-sep section-sep-sm">
             <button id="btn-expand-county" class="action-btn btn-expand" disabled>划入新地</button>
         </div>
 
         <div id="tab-pref" class="tab-content">
-            <div id="pref-data-view" style="display:none;">
+            <div id="pref-data-view" class="hidden">
                 <div class="info-row">
                     <label>府名:</label>
                     <input type="text" id="inp-pref-name">
@@ -96,11 +96,11 @@
                     <input type="text" id="inp-pref-cap" disabled>
                 </div>
 
-                <div class="stats-grid" style="margin-top: 15px;">
+                <div class="stats-grid mt-15">
                     <div class="stats-item"><label>总人口</label><div id="stat-pref-pop">--</div></div>
                     <div class="stats-item"><label>总面积</label><div id="stat-pref-area">--</div></div>
                     <div class="stats-item"><label>经济</label><div id="stat-pref-econ">--</div></div>
-                    <div class="stats-item"><label>官营机构与主产</label><div id="stat-pref-ind" style="font-weight: bold; color: #e67e22;">--</div></div>
+                    <div class="stats-item"><label>官营机构与主产</label><div id="stat-pref-ind" class="stat-pref-ind">--</div></div>
                 </div>
 
                 <div class="local-officials-panel">
@@ -108,7 +108,7 @@
                     <div id="pref-officials-list" class="roster-list"></div>
                 </div>
 
-                <hr style="border-color: #7f8c8d; margin: 20px 0;">
+                <hr class="section-sep section-sep-md">
                 <button id="btn-expand-pref" class="action-btn btn-expand">划入新县</button>
             </div>
             <div id="pref-empty-view" class="empty-state">
@@ -118,7 +118,7 @@
         </div>
 
         <div id="tab-prov" class="tab-content">
-            <div id="prov-data-view" style="display:none;">
+            <div id="prov-data-view" class="hidden">
                 <div class="info-row">
                     <label>省名:</label>
                     <input type="text" id="inp-prov-name">
@@ -132,11 +132,11 @@
                     <input type="text" id="inp-prov-cap" disabled>
                 </div>
 
-                <div class="stats-grid" style="margin-top: 15px;">
+                <div class="stats-grid mt-15">
                     <div class="stats-item"><label>人口</label><div id="stat-prov-pop">--</div></div>
                     <div class="stats-item"><label>辖地</label><div id="stat-prov-area">--</div></div>
                     <div class="stats-item"><label>经济</label><div id="stat-prov-econ">--</div></div>
-                    <div class="stats-item"><label>省域支柱产业</label><div id="stat-prov-ind" style="font-weight: bold; color: #27ae60;">--</div></div>
+                    <div class="stats-item"><label>省域支柱产业</label><div id="stat-prov-ind" class="stat-prov-ind">--</div></div>
                 </div>
 
                 <div class="local-officials-panel">
@@ -144,7 +144,7 @@
                     <div id="prov-officials-list" class="roster-list"></div>
                 </div>
 
-                <hr style="border-color: #7f8c8d; margin: 20px 0;">
+                <hr class="section-sep section-sep-md">
                 <button id="btn-expand-prov" class="action-btn btn-expand">划入新府</button>
             </div>
             <div id="prov-empty-view" class="empty-state">
@@ -158,7 +158,7 @@
             <button id="btn-load-local" class="sys-btn">📂 读取缓存</button>
             <button id="btn-export-file" class="sys-btn">⬇️ 导出存档</button>
             <button id="btn-import-trigger" class="sys-btn">⬆️ 导入存档</button>
-            <input type="file" id="file-upload" style="display:none;" accept=".json">
+            <input type="file" id="file-upload" class="hidden" accept=".json">
         </div>
     </div>
 

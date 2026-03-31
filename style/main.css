@@ -8,6 +8,44 @@ body {
     height: 90vh;
 }
 
+.hidden {
+    display: none;
+}
+
+.mt-12 {
+    margin-top: 12px;
+}
+
+.mt-14 {
+    margin-top: 14px;
+}
+
+.mt-15 {
+    margin-top: 15px;
+}
+
+.section-sep {
+    border-color: #7f8c8d;
+}
+
+.section-sep-sm {
+    margin: 15px 0;
+}
+
+.section-sep-md {
+    margin: 20px 0;
+}
+
+.stat-pref-ind {
+    font-weight: bold;
+    color: #e67e22;
+}
+
+.stat-prov-ind {
+    font-weight: bold;
+    color: #27ae60;
+}
+
 #map-container {
     flex: 2;
     background: #1a252f;

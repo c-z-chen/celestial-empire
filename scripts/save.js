@@ -1,5 +1,5 @@
 import { NameGen } from './nameGen.js';
-import { state } from './state.js';
+import { state, invalidateCountyGroupIndex } from './state.js';
 import { renderMap } from './map.js';
 import { renderCapitalGovernorAssignments } from './officials.js';
 
@@ -36,6 +36,7 @@ export const SaveManager = {
         state.officials                        = d.officials || { byId: {}, byPosition: {}, nextId: 1 };
         state.selectedCellId = null;
         state.mergeMode      = null;
+        invalidateCountyGroupIndex();
         NameGen.generatedNames.clear();
         renderMap();
         renderCapitalGovernorAssignments();

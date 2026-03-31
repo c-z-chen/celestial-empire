@@ -4,13 +4,17 @@ import {
     getCapitalSelectionIndex, getGovernorRegionByProvinceId,
     isProvinceOccupiedByGovernorRegion
 } from './officials.js';
-// ui.js is imported inside functions to avoid circular-dependency issues at evaluation time.
+
+const uiModulePromise = import('./ui.js');
+function withUI(handler) {
+    return uiModulePromise.then(handler);
+}
 
 // ── Neighbor computation ───────────────────────────────────────────────────────
 
 export function computeNeighbors(features) {
-    state.neighborsMap = {};
-    features.forEach((_, i) => state.neighborsMap[i] = []);
+    const neighborSets = {};
+    features.forEach((_, i) => neighborSets[i] = new Set());
     let vertexMap = {};
 
     features.forEach((f, i) => {
@@ -34,11 +38,15 @@ export function computeNeighbors(features) {
             for (let i = 0; i < indices.length; i++) {
                 for (let j = i + 1; j < indices.length; j++) {
                     let a = indices[i], b = indices[j];
-                    if (!state.neighborsMap[a].includes(b)) state.neighborsMap[a].push(b);
-                    if (!state.neighborsMap[b].includes(a)) state.neighborsMap[b].push(a);
+                    neighborSets[a].add(b);
+                    neighborSets[b].add(a);
                 }
             }
         }
+    });
+    state.neighborsMap = {};
+    Object.keys(neighborSets).forEach(k => {
+        state.neighborsMap[k] = Array.from(neighborSets[k]);
     });
 }
 
@@ -149,8 +157,7 @@ export function setMapView(mode, syncTab = true) {
     if (state.selectedCellId !== null) highlightSelection(state.selectedCellId);
 
     if (syncTab) {
-        // Import switchTab lazily to avoid circular-dependency at evaluation time.
-        import('./ui.js').then(({ switchTab }) => {
+        withUI(({ switchTab }) => {
             const tabMap = { 'county': 'county', 'prefecture': 'pref', 'province': 'prov' };
             if (state.activeTab !== tabMap[mode]) {
                 switchTab(tabMap[mode]);
@@ -187,11 +194,12 @@ export function renderMap() {
         .attr("d", state.pathGenerator)
         .attr("class", "county")
         .attr("id", (d, i) => "cell-" + i)
+        .attr("data-cell-id", (d, i) => i)
         .attr("stroke", "#ffffff")
         .attr("stroke-width", 0.3)
-        .on("click", function(event, d) {
-            let i = state.geoFeatures.indexOf(d);
-            import('./ui.js').then(({ handleRegionClick }) => handleRegionClick(i));
+        .on("click", function(event) {
+            let i = Number(event.currentTarget?.dataset?.cellId);
+            withUI(({ handleRegionClick }) => handleRegionClick(i));
         });
 
     state.currentTransform = d3.zoomIdentity;
@@ -215,5 +223,5 @@ export function renderMap() {
     svg.call(state.zoomBehavior);
 
     setMapView(state.mapViewMode, false);
-    import('./ui.js').then(({ updateUI }) => updateUI());
+    withUI(({ updateUI }) => updateUI());
 }

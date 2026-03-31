@@ -18,6 +18,9 @@ export const state = {
     geoFeatures: [],
     pathGenerator: null,
     neighborsMap: {},
+    countyGroupsByPref: {},
+    countyGroupsByProv: {},
+    countyGroupsDirty: true,
     currentTransform: null,
     zoomBehavior: null,
     
@@ -31,4 +34,42 @@ export const state = {
 
 export function isCapitalTabActive() {
     return state.activeTab === 'capital';
+}
+
+export function invalidateCountyGroupIndex() {
+    state.countyGroupsDirty = true;
+}
+
+export function rebuildCountyGroupIndex() {
+    const byPref = {};
+    const byProv = {};
+    Object.values(state.countyData).forEach(c => {
+        if (c.prefId !== null && c.prefId !== undefined) {
+            if (!byPref[c.prefId]) byPref[c.prefId] = [];
+            byPref[c.prefId].push(c);
+        }
+        if (c.provId !== null && c.provId !== undefined) {
+            if (!byProv[c.provId]) byProv[c.provId] = [];
+            byProv[c.provId].push(c);
+        }
+    });
+    state.countyGroupsByPref = byPref;
+    state.countyGroupsByProv = byProv;
+    state.countyGroupsDirty = false;
+}
+
+function ensureCountyGroupIndex() {
+    if (state.countyGroupsDirty) {
+        rebuildCountyGroupIndex();
+    }
+}
+
+export function getCountiesByPrefId(prefId) {
+    ensureCountyGroupIndex();
+    return state.countyGroupsByPref[prefId] || [];
+}
+
+export function getCountiesByProvId(provId) {
+    ensureCountyGroupIndex();
+    return state.countyGroupsByProv[provId] || [];
 }
