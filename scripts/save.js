@@ -1,5 +1,5 @@
 import { NameGen } from './nameGen.js';
-import { state, invalidateCountyGroupIndex } from './state.js';
+import { state, invalidateCountyGroupIndex, invalidateGovernorRegionIndex } from './state.js';
 import { renderMap } from './map.js';
 import { renderCapitalGovernorAssignments } from './officials.js';
 
@@ -33,10 +33,13 @@ export const SaveManager = {
         state.capitalGovernorSelectedProvinces = Array.isArray(d.capitalGovernorSelectedProvinces) ? d.capitalGovernorSelectedProvinces : [];
         state.capitalGovernorRegions           = Array.isArray(d.capitalGovernorRegions)           ? d.capitalGovernorRegions           : [];
         state.capitalGovernorNextId            = d.capitalGovernorNextId || (state.capitalGovernorRegions.length + 1);
+        state.capitalGovernorRegionByProvId    = {};
+        state.capitalGovernorRegionIndexDirty  = true;
         state.officials                        = d.officials || { byId: {}, byPosition: {}, nextId: 1 };
         state.selectedCellId = null;
         state.mergeMode      = null;
         invalidateCountyGroupIndex();
+        invalidateGovernorRegionIndex();
         NameGen.generatedNames.clear();
         renderMap();
         renderCapitalGovernorAssignments();

@@ -14,6 +14,8 @@ export const state = {
     capitalGovernorSelectedProvinces: [],
     capitalGovernorRegions: [],
     capitalGovernorNextId: 1,
+    capitalGovernorRegionByProvId: {},
+    capitalGovernorRegionIndexDirty: true,
     capitalSectionOpen: {},
     geoFeatures: [],
     pathGenerator: null,
@@ -38,6 +40,10 @@ export function isCapitalTabActive() {
 
 export function invalidateCountyGroupIndex() {
     state.countyGroupsDirty = true;
+}
+
+export function invalidateGovernorRegionIndex() {
+    state.capitalGovernorRegionIndexDirty = true;
 }
 
 export function rebuildCountyGroupIndex() {
@@ -72,4 +78,27 @@ export function getCountiesByPrefId(prefId) {
 export function getCountiesByProvId(provId) {
     ensureCountyGroupIndex();
     return state.countyGroupsByProv[provId] || [];
+}
+
+export function rebuildGovernorRegionIndex() {
+    const byProv = {};
+    (state.capitalGovernorRegions || []).forEach(region => {
+        (region?.provIds || []).forEach(provId => {
+            if (provId == null) return;
+            byProv[provId] = region;
+        });
+    });
+    state.capitalGovernorRegionByProvId = byProv;
+    state.capitalGovernorRegionIndexDirty = false;
+}
+
+function ensureGovernorRegionIndex() {
+    if (state.capitalGovernorRegionIndexDirty) {
+        rebuildGovernorRegionIndex();
+    }
+}
+
+export function getGovernorRegionByProvId(provId) {
+    ensureGovernorRegionIndex();
+    return state.capitalGovernorRegionByProvId[provId] || null;
 }

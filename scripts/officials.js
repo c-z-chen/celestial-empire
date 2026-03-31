@@ -13,7 +13,7 @@ import {
     RANK_TO_PREFERRED_EXAM
 } from './constants.js';
 import { NameGen } from './nameGen.js';
-import { state } from './state.js';
+import { state, getGovernorRegionByProvId, invalidateGovernorRegionIndex } from './state.js';
 import { refreshTerritoryPaint, highlightSelection } from './map.js';
 
 export function getProvinceNameById(provId) {
@@ -31,7 +31,7 @@ export function getCapitalSelectionIndex(provId) {
 
 export function getGovernorRegionByProvinceId(provId) {
     if (provId === null || provId === undefined) return null;
-    return state.capitalGovernorRegions.find(r => (r.provIds || []).includes(provId)) || null;
+    return getGovernorRegionByProvId(provId);
 }
 
 export function isProvinceOccupiedByGovernorRegion(provId) {
@@ -1619,6 +1619,7 @@ export function establishCapitalGovernorRegion() {
         name: NameGen.person(),
         color
     });
+    invalidateGovernorRegionIndex();
 
     state.capitalGovernorSelectedProvinces = [];
     renderCapitalGovernorAssignments();

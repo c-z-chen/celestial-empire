@@ -4,7 +4,7 @@ import {
     ecoLvlMap, normalizeEconomy
 } from './constants.js';
 import { NameGen } from './nameGen.js';
-import { state, getCountiesByPrefId, invalidateCountyGroupIndex } from './state.js';
+import { state, getCountiesByPrefId, getCountiesByProvId, invalidateCountyGroupIndex, invalidateGovernorRegionIndex } from './state.js';
 import { generateRoster } from './officials.js';
 import { setMapView, refreshTerritoryPaint, highlightSelection } from './map.js';
 
@@ -505,6 +505,8 @@ export function initWorldData() {
     state.capitalGovernorSelectedProvinces = [];
     state.capitalGovernorRegions = [];
     state.capitalGovernorNextId = 1;
+    state.capitalGovernorRegionByProvId = {};
+    state.capitalGovernorRegionIndexDirty = true;
     state.countyGroupsByPref = {};
     state.countyGroupsByProv = {};
     state.countyGroupsDirty = true;
@@ -737,14 +739,21 @@ export function attemptMerge(absId, tgtId, level) {
                                  c.provId   === abs.provId
     ).map(c => c.id);
 
-    let tgtCells = Object.values(state.countyData).filter(c =>
-        (level === 'province' && tgt.prefId !== null) ? c.prefId === tgt.prefId : c.masterId === tgt.masterId
-    ).map(c => c.id);
+    if (level === 'prefecture') {
+        srcCells = getCountiesByPrefId(abs.prefId).map(c => c.id);
+    } else if (level === 'province') {
+        srcCells = getCountiesByProvId(abs.provId).map(c => c.id);
+    }
 
+    let tgtCells = (level === 'province' && tgt.prefId !== null)
+        ? getCountiesByPrefId(tgt.prefId).map(c => c.id)
+        : Object.values(state.countyData).filter(c => c.masterId === tgt.masterId).map(c => c.id);
+
+    const tgtCellSet = new Set(tgtCells);
     let isAdj = false;
     for (let id of srcCells) {
         let nList = state.neighborsMap[id] || [];
-        for (let n of nList) { if (tgtCells.includes(n)) { isAdj = true; break; } }
+        for (let n of nList) { if (tgtCellSet.has(n)) { isAdj = true; break; } }
         if (isAdj) break;
     }
 
@@ -763,6 +772,7 @@ export function attemptMerge(absId, tgtId, level) {
         }
     });
     invalidateCountyGroupIndex();
+    invalidateGovernorRegionIndex();
 
     toggleMerge(level);
     setMapView(level);
