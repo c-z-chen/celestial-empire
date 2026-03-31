@@ -1,5 +1,5 @@
 import { BureauMap, ecoLvlMap, normalizeEconomy } from './constants.js';
-import { state, isCapitalTabActive } from './state.js';
+import { state, isCapitalTabActive, getCountiesByPrefId, getCountiesByProvId } from './state.js';
 import {
     renderRosterList,
     renderCapitalGovernorAssignments,
@@ -11,13 +11,20 @@ import {
 import { setMapView, refreshTerritoryPaint, drawCapitals, highlightSelection } from './map.js';
 import { toggleMerge, attemptMerge } from './territory.js';
 
+const DEBUG = false;
+function debugInfo(...args) {
+    if (DEBUG) console.info(...args);
+}
+function debugWarn(...args) {
+    if (DEBUG) console.warn(...args);
+}
+
 function aggregateRegionData(regionCounties) {
     let totalPop = 0, totalArea = 0, militaryCount = 0, indCounts = {};
     let officialIndCounts = {};
 
     let ecoScores = [];
     let regionEcoScores = [];
-    let regionEcoCounts = {};
     let weightedEcoPopSum = 0;
     let weightedEcoPopBase = 0;
     let uniqueMasters = new Set();
@@ -39,7 +46,6 @@ function aggregateRegionData(regionCounties) {
         const ecoScore = ecoLvlMap[normalizedEco];
         if (ecoScore) {
             regionEcoScores.push(ecoScore);
-            regionEcoCounts[normalizedEco] = (regionEcoCounts[normalizedEco] || 0) + 1;
             weightedEcoPopSum += ecoScore * Math.max(1, m.population || 0);
             weightedEcoPopBase += Math.max(1, m.population || 0);
         }
@@ -50,7 +56,6 @@ function aggregateRegionData(regionCounties) {
 
     let sortedInds = Object.keys(indCounts).sort((a, b) => indCounts[b] - indCounts[a]);
     let sortedOfficialInds = Object.keys(officialIndCounts).sort((a, b) => officialIndCounts[b] - officialIndCounts[a]);
-    let sortedEcoLevels = Object.keys(regionEcoCounts).sort((a, b) => regionEcoCounts[b] - regionEcoCounts[a]);
     const avgEco = ecoScores.length ? (ecoScores.reduce((sum, s) => sum + s, 0) / ecoScores.length) : 0;
     const maxEco = ecoScores.length ? Math.max(...ecoScores) : 0;
     const richCount = ecoScores.filter(s => s >= 4).length;
@@ -84,7 +89,6 @@ function aggregateRegionData(regionCounties) {
         regionCompositeEco >= 4.00 ? "富庶" :
         regionCompositeEco >= 2.35 ? "平稳" :
         regionCompositeEco >= 1.55 ? "拮据" : "凋敝";
-    const dominantEco = sortedEcoLevels[0] || "未知";
     const volumeTag = totalPop >= 2000000 ? "体量：巨" :
         totalPop >= 1000000 ? "体量：大" :
         totalPop >= 500000 ? "体量：中" : "体量：小";
@@ -98,10 +102,67 @@ function aggregateRegionData(regionCounties) {
     };
 }
 
+const uiRefs = {
+    countyName: null,
+    countyGov: null,
+    btnExpandCounty: null,
+    statPop: null,
+    statArea: null,
+    statEcon: null,
+    statInd: null,
+    prefDataView: null,
+    prefEmptyView: null,
+    prefName: null,
+    prefGov: null,
+    prefCap: null,
+    statPrefPop: null,
+    statPrefArea: null,
+    statPrefEcon: null,
+    statPrefInd: null,
+    provDataView: null,
+    provEmptyView: null,
+    provName: null,
+    provGov: null,
+    provCap: null,
+    statProvPop: null,
+    statProvArea: null,
+    statProvEcon: null,
+    statProvInd: null
+};
+
+function ensureUIRefs() {
+    if (uiRefs.countyName) return;
+    uiRefs.countyName = document.getElementById('inp-county-name');
+    uiRefs.countyGov = document.getElementById('inp-county-gov');
+    uiRefs.btnExpandCounty = document.getElementById('btn-expand-county');
+    uiRefs.statPop = document.getElementById('stat-pop');
+    uiRefs.statArea = document.getElementById('stat-area');
+    uiRefs.statEcon = document.getElementById('stat-econ');
+    uiRefs.statInd = document.getElementById('stat-ind');
+    uiRefs.prefDataView = document.getElementById('pref-data-view');
+    uiRefs.prefEmptyView = document.getElementById('pref-empty-view');
+    uiRefs.prefName = document.getElementById('inp-pref-name');
+    uiRefs.prefGov = document.getElementById('inp-pref-gov');
+    uiRefs.prefCap = document.getElementById('inp-pref-cap');
+    uiRefs.statPrefPop = document.getElementById('stat-pref-pop');
+    uiRefs.statPrefArea = document.getElementById('stat-pref-area');
+    uiRefs.statPrefEcon = document.getElementById('stat-pref-econ');
+    uiRefs.statPrefInd = document.getElementById('stat-pref-ind');
+    uiRefs.provDataView = document.getElementById('prov-data-view');
+    uiRefs.provEmptyView = document.getElementById('prov-empty-view');
+    uiRefs.provName = document.getElementById('inp-prov-name');
+    uiRefs.provGov = document.getElementById('inp-prov-gov');
+    uiRefs.provCap = document.getElementById('inp-prov-cap');
+    uiRefs.statProvPop = document.getElementById('stat-prov-pop');
+    uiRefs.statProvArea = document.getElementById('stat-prov-area');
+    uiRefs.statProvEcon = document.getElementById('stat-prov-econ');
+    uiRefs.statProvInd = document.getElementById('stat-prov-ind');
+}
+
 function auditPrefectureBureaus() {
     const anomalies = [];
     Object.values(state.prefecturesData).forEach(pref => {
-        const prefCounties = Object.values(state.countyData).filter(c => c.prefId === pref.id);
+        const prefCounties = getCountiesByPrefId(pref.id);
         const uniqueMasters = new Set();
         const masters = [];
         prefCounties.forEach(c => {
@@ -129,43 +190,44 @@ function auditPrefectureBureaus() {
     });
 
     if (!anomalies.length) {
-        console.info('[auditPrefectureBureaus] 未发现“全贫困但仍设官营机构”的府。');
+        debugInfo('[auditPrefectureBureaus] 未发现“全贫困但仍设官营机构”的府。');
         return [];
     }
 
-    console.warn('[auditPrefectureBureaus] 发现异常府：', anomalies);
+    debugWarn('[auditPrefectureBureaus] 发现异常府：', anomalies);
     return anomalies;
 }
 
 export function updateUI() {
+    ensureUIRefs();
     if (state.selectedCellId === null) return;
     let cell   = state.countyData[state.selectedCellId];
     let master = state.countyData[cell.masterId];
 
-    document.getElementById('inp-county-name').value    = master.name;
-    document.getElementById('inp-county-gov').value     = master.official;
-    document.getElementById('inp-county-name').disabled = false;
-    document.getElementById('inp-county-gov').disabled  = false;
-    document.getElementById('btn-expand-county').disabled = false;
+    uiRefs.countyName.value = master.name;
+    uiRefs.countyGov.value = master.official;
+    uiRefs.countyName.disabled = false;
+    uiRefs.countyGov.disabled = false;
+    uiRefs.btnExpandCounty.disabled = false;
 
-    document.getElementById('stat-pop').innerText  = master.population.toLocaleString() + " " + (master.popUnit || "人");
-    document.getElementById('stat-area').innerText = master.area.toLocaleString() + " 顷";
-    document.getElementById('stat-econ').innerText = master.economy;
-    document.getElementById('stat-ind').innerText  = master.industry;
+    uiRefs.statPop.innerText = master.population.toLocaleString() + " " + (master.popUnit || "人");
+    uiRefs.statArea.innerText = master.area.toLocaleString() + " 顷";
+    uiRefs.statEcon.innerText = master.economy;
+    uiRefs.statInd.innerText = master.industry;
 
     if (cell.prefId === null) {
-        document.getElementById('pref-data-view').style.display = 'none';
-        document.getElementById('pref-empty-view').style.display = 'block';
+        uiRefs.prefDataView.style.display = 'none';
+        uiRefs.prefEmptyView.style.display = 'block';
     } else {
         let p = state.prefecturesData[cell.prefId];
-        document.getElementById('pref-empty-view').style.display = 'none';
-        document.getElementById('pref-data-view').style.display  = 'block';
+        uiRefs.prefEmptyView.style.display = 'none';
+        uiRefs.prefDataView.style.display  = 'block';
 
-        document.getElementById('inp-pref-name').value = p.name;
-        document.getElementById('inp-pref-gov').value  = p.official;
-        document.getElementById('inp-pref-cap').value  = state.countyData[p.capitalCountyId].name;
+        uiRefs.prefName.value = p.name;
+        uiRefs.prefGov.value = p.official;
+        uiRefs.prefCap.value = state.countyData[p.capitalCountyId].name;
 
-        let prefCounties = Object.values(state.countyData).filter(c => c.prefId === cell.prefId);
+        let prefCounties = getCountiesByPrefId(cell.prefId);
         let prefStats    = aggregateRegionData(prefCounties);
 
         let prefBureau = "普通州府";
@@ -176,25 +238,25 @@ export function updateUI() {
         }
         let milStr = prefStats.militaryCount > 0 ? ` (含${prefStats.militaryCount}处军镇)` : "";
 
-        if (document.getElementById('stat-pref-pop'))  document.getElementById('stat-pref-pop').innerText  = prefStats.totalPop.toLocaleString()  + " 人" + milStr;
-        if (document.getElementById('stat-pref-area')) document.getElementById('stat-pref-area').innerText = prefStats.totalArea.toLocaleString() + " 顷";
-        if (document.getElementById('stat-pref-econ')) document.getElementById('stat-pref-econ').innerText = prefStats.economyStr;
-        if (document.getElementById('stat-pref-ind'))  document.getElementById('stat-pref-ind').innerText  = prefBureau;
+        if (uiRefs.statPrefPop)  uiRefs.statPrefPop.innerText  = prefStats.totalPop.toLocaleString()  + " 人" + milStr;
+        if (uiRefs.statPrefArea) uiRefs.statPrefArea.innerText = prefStats.totalArea.toLocaleString() + " 顷";
+        if (uiRefs.statPrefEcon) uiRefs.statPrefEcon.innerText = prefStats.economyStr;
+        if (uiRefs.statPrefInd)  uiRefs.statPrefInd.innerText  = prefBureau;
     }
 
     if (cell.provId === null) {
-        document.getElementById('prov-data-view').style.display = 'none';
-        document.getElementById('prov-empty-view').style.display = 'block';
+        uiRefs.provDataView.style.display = 'none';
+        uiRefs.provEmptyView.style.display = 'block';
     } else {
         let p = state.provincesData[cell.provId];
-        document.getElementById('prov-empty-view').style.display = 'none';
-        document.getElementById('prov-data-view').style.display  = 'block';
+        uiRefs.provEmptyView.style.display = 'none';
+        uiRefs.provDataView.style.display  = 'block';
 
-        document.getElementById('inp-prov-name').value = p.name;
-        document.getElementById('inp-prov-gov').value  = p.official;
-        document.getElementById('inp-prov-cap').value  = state.countyData[p.capitalCountyId].name;
+        uiRefs.provName.value = p.name;
+        uiRefs.provGov.value = p.official;
+        uiRefs.provCap.value = state.countyData[p.capitalCountyId].name;
 
-        let provCounties = Object.values(state.countyData).filter(c => c.provId === cell.provId);
+        let provCounties = getCountiesByProvId(cell.provId);
         let provStats    = aggregateRegionData(provCounties);
 
         let provIndStr = "百业待兴";
@@ -205,10 +267,10 @@ export function updateUI() {
         }
         let milStr = provStats.militaryCount > 0 ? ` (辖${provStats.militaryCount}处军镇)` : "";
 
-        if (document.getElementById('stat-prov-pop'))  document.getElementById('stat-prov-pop').innerText  = provStats.totalPop.toLocaleString()  + " 人" + milStr;
-        if (document.getElementById('stat-prov-area')) document.getElementById('stat-prov-area').innerText = provStats.totalArea.toLocaleString() + " 顷";
-        if (document.getElementById('stat-prov-econ')) document.getElementById('stat-prov-econ').innerText = provStats.economyStr;
-        if (document.getElementById('stat-prov-ind'))  document.getElementById('stat-prov-ind').innerText  = provIndStr;
+        if (uiRefs.statProvPop)  uiRefs.statProvPop.innerText  = provStats.totalPop.toLocaleString()  + " 人" + milStr;
+        if (uiRefs.statProvArea) uiRefs.statProvArea.innerText = provStats.totalArea.toLocaleString() + " 顷";
+        if (uiRefs.statProvEcon) uiRefs.statProvEcon.innerText = provStats.economyStr;
+        if (uiRefs.statProvInd)  uiRefs.statProvInd.innerText  = provIndStr;
     }
 
     if (master.roster) renderRosterList('county-officials-list', master.roster);

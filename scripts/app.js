@@ -11,10 +11,18 @@ import { initWorldData, establish, toggleMerge } from './territory.js';
 import { switchTab } from './ui.js';
 import { SaveManager } from './save.js';
 
+const DEBUG = false;
+function debugLog(...args) {
+    if (DEBUG) console.log(...args);
+}
+function debugError(...args) {
+    console.error(...args);
+}
+
 function loadChinaMap() {
     d3.json("./maps/qing_1820_counties.json").then(geoData => {
         state.geoFeatures = geoData.features.filter(f => f.geometry);
-        console.log("成功读取地图区块数量：", state.geoFeatures.length);
+        debugLog("成功读取地图区块数量：", state.geoFeatures.length);
 
         const projection = d3.geoMercator().fitSize([MAP_WIDTH, MAP_HEIGHT], geoData);
         state.pathGenerator = d3.geoPath().projection(projection);
@@ -25,14 +33,14 @@ function loadChinaMap() {
         state.geoFeatures.forEach((f, i) => {
             if (d3.geoContains(f, [116.406, 39.906])) {
                 state.capitalId = i;
-                console.log("找到京师区块:", f.properties.NAME_CH);
+                debugLog("找到京师区块:", f.properties.NAME_CH);
             }
         });
 
         initWorldData();
         renderMap();
     }).catch(err => {
-        console.error("地图加载失败，请检查文件路径或格式:", err);
+        debugError("地图加载失败，请检查文件路径或格式:", err);
     });
 }
 
