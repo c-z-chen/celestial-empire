@@ -89,7 +89,6 @@ function aggregateRegionData(regionCounties) {
         regionCompositeEco >= 4.00 ? "富庶" :
         regionCompositeEco >= 2.35 ? "平稳" :
         regionCompositeEco >= 1.55 ? "拮据" : "凋敝";
-    const dominantEco = sortedEcoLevels[0] || "未知";
     const volumeTag = totalPop >= 2000000 ? "体量：巨" :
         totalPop >= 1000000 ? "体量：大" :
         totalPop >= 500000 ? "体量：中" : "体量：小";
