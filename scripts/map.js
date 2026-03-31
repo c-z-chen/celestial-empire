@@ -200,8 +200,7 @@ export function renderMap() {
             const rawId = event.currentTarget?.dataset?.cellId;
             if (rawId == null) return;
             let i = Number(rawId);
-            if (!Number.isInteger(i)) return;
-            if (i < 0 || i >= state.geoFeatures.length) return;
+            if (!Number.isInteger(i) || i < 0 || i >= state.geoFeatures.length) return;
             withUI(({ handleRegionClick }) => handleRegionClick(i));
         });
 
