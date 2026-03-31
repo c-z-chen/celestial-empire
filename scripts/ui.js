@@ -25,7 +25,6 @@ function aggregateRegionData(regionCounties) {
 
     let ecoScores = [];
     let regionEcoScores = [];
-    let regionEcoCounts = {};
     let weightedEcoPopSum = 0;
     let weightedEcoPopBase = 0;
     let uniqueMasters = new Set();
@@ -47,7 +46,6 @@ function aggregateRegionData(regionCounties) {
         const ecoScore = ecoLvlMap[normalizedEco];
         if (ecoScore) {
             regionEcoScores.push(ecoScore);
-            regionEcoCounts[normalizedEco] = (regionEcoCounts[normalizedEco] || 0) + 1;
             weightedEcoPopSum += ecoScore * Math.max(1, m.population || 0);
             weightedEcoPopBase += Math.max(1, m.population || 0);
         }

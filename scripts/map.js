@@ -13,8 +13,7 @@ function withUI(handler) {
 // ── Neighbor computation ───────────────────────────────────────────────────────
 
 export function computeNeighbors(features) {
-    const neighborSets = {};
-    features.forEach((_, i) => neighborSets[i] = new Set());
+    const neighborSets = features.map(() => new Set());
     let vertexMap = {};
 
     features.forEach((f, i) => {
@@ -45,8 +44,8 @@ export function computeNeighbors(features) {
         }
     });
     state.neighborsMap = {};
-    Object.keys(neighborSets).forEach(k => {
-        state.neighborsMap[k] = Array.from(neighborSets[k]);
+    neighborSets.forEach((set, i) => {
+        state.neighborsMap[i] = Array.from(set);
     });
 }
 
@@ -198,7 +197,11 @@ export function renderMap() {
         .attr("stroke", "#ffffff")
         .attr("stroke-width", 0.3)
         .on("click", function(event) {
-            let i = Number(event.currentTarget?.dataset?.cellId);
+            const rawId = event.currentTarget?.dataset?.cellId;
+            if (rawId == null) return;
+            let i = Number(rawId);
+            if (!Number.isInteger(i)) return;
+            if (i < 0 || i >= state.geoFeatures.length) return;
             withUI(({ handleRegionClick }) => handleRegionClick(i));
         });
 

@@ -44,11 +44,11 @@ export function rebuildCountyGroupIndex() {
     const byPref = {};
     const byProv = {};
     Object.values(state.countyData).forEach(c => {
-        if (c.prefId !== null && c.prefId !== undefined) {
+        if (c.prefId != null) {
             if (!byPref[c.prefId]) byPref[c.prefId] = [];
             byPref[c.prefId].push(c);
         }
-        if (c.provId !== null && c.provId !== undefined) {
+        if (c.provId != null) {
             if (!byProv[c.provId]) byProv[c.provId] = [];
             byProv[c.provId].push(c);
         }
