@@ -377,7 +377,6 @@ export const RANK_TO_PREFERRED_EXAM = {
     "从四品": ["举人", "贡生"],
     "正五品": ["举人", "贡生", "荫生"],
     "从五品": ["举人", "贡生", "荫生"],
-    // 低品官员可有更多出身渠道
     "default": ["举人", "贡生", "荫生", "捐纳"]
 };
 
@@ -391,7 +390,7 @@ export const OFFICIAL_ASSIGNMENT_RULES = {
     honorary: {
         maxConcurrent: 4,
         minAge: 45,
-        oldMinisterBonusAge: 55,
+        oldMinisterBonusAge: 58,
         preferredMainPostKeywords: ["尚书", "大学士", "御史", "总管"]
     },
     concurrent: {

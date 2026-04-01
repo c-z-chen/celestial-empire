@@ -478,7 +478,6 @@ function promptAddPostForOfficial(offId, defaultType = 'concurrent') {
     const title = titleRaw.trim();
     if (!title) return;
     
-    // Find the rank for this title from officialData
     let rank = '从一品';
     let type = defaultType;
     let found = false;

@@ -62,8 +62,6 @@ export function isCapitalGovernorMode() {
     return state.capitalMode === 'governor';
 }
 
-// ===== Private helper functions =====
-
 function getJobSlots(job) {
     return Number.isInteger(job?.quota) && job.quota > 0 ? job.quota : 1;
 }
@@ -399,12 +397,12 @@ function getHanlinExamTargets(rank = '', positionTitle = '') {
 
 function getMinAgeForRank(rank = '') {
     const minAgeByRank = {
-        '正一品': 50,
-        '从一品': 47,
-        '正二品': 44,
-        '从二品': 42,
-        '正三品': 38,
-        '从三品': 36
+        '正一品': 54,
+        '从一品': 52,
+        '正二品': 48,
+        '从二品': 45,
+        '正三品': 42,
+        '从三品': 38
     };
     return minAgeByRank[rank] || 30;
 }
@@ -500,22 +498,6 @@ const HONORARY_EXCLUDED_MAIN_TITLES = new Set([
     '理藩院尚书',
     '理藩院侍郎'
 ]);
-
-const POWER_POST_TEMPLATES = [
-    { title: '管理吏部' },
-    { title: '管理户部' },
-    { title: '管理礼部' },
-    { title: '军机大臣' },
-    { title: '领班军机大臣' }
-];
-
-function addPowerPost(offId, title) {
-    const official = state.officials.byId[offId];
-    if (!official) return;
-    const rank = official.mainPost?.rank || '从一品';
-    addConcurrentPost(offId, title, rank, 'power', OFFICIAL_TIMELINE_BASE_YEAR);
-    // UI refreshing is handled by the calling code
-}
 
 export function isHonoraryCandidateDisallowed(official, title = '') {
     if (!STRICT_HONORARY_TITLES.has(title)) return false;
@@ -710,166 +692,257 @@ function buildOfficialProfile(fullName, ageInput) {
     };
 }
 
-function buildInitialCareerHistory(originPath = '', examPath = '', serviceStartYear, targetRank = '', targetTitle = '') {
-    const isJinshi = originPath === '进士' || examPath.startsWith('进士');
-    const entryEvent = isJinshi ? '科甲' : '入仕';
-    const entryDetail = isJinshi ? `${examPath}登科` : (originPath === '捐纳' ? '捐纳候补' : '初授候补');
-    const history = [{ year: serviceStartYear, event: entryEvent, detail: entryDetail }];
-    const year1 = isJinshi ? serviceStartYear : serviceStartYear + 1 + Math.floor(Math.random() * 2);
-    const year2 = year1 + 2 + Math.floor(Math.random() * 3);
-    const year3 = year2 + 2 + Math.floor(Math.random() * 3);
-    const hanlinEntry = randomPick(OFFICIAL_PROFILE_POOLS.hanlinEntryEvents);
-    const sanguanResult = randomPick(OFFICIAL_PROFILE_POOLS.sanguanResults);
-    const jingchaResult = randomPick(OFFICIAL_PROFILE_POOLS.jingchaResults);
-    const waifangPerf = randomPick(OFFICIAL_PROFILE_POOLS.waifangPerformance);
-    const lowRank = isLowRank(targetRank);
-    const targetRankIdx = OFFICIAL_RANK_ORDER.indexOf(targetRank);
-    let lastRankIdx = OFFICIAL_RANK_ORDER.length - 1;
+export function buildInitialCareerHistory(originPath = '', examPath = '', serviceStartYear, targetRank = '', targetTitle = '') {
+    const history = [];
+    let currentYear = serviceStartYear;
+    
+    const CURRENT_WORLD_YEAR = typeof OFFICIAL_TIMELINE_BASE_YEAR !== 'undefined' ? OFFICIAL_TIMELINE_BASE_YEAR : currentYear + 40;
 
-    if (lowRank) {
-        if (isJinshi && (targetTitle.includes('翰林院') || targetTitle.includes('内阁'))) {
-            history.push({ year: year1, event: '入馆', detail: `入馆供职（${hanlinEntry}）` });
-        } else if (!targetTitle) {
-            history.push({ year: year1, event: '供职', detail: '候补京职' });
+    const hanlinTrack = [
+        { rank: '未入流', titles: ['庶吉士'] },
+        { rank: '从七品', titles: ['翰林院检讨', '内阁中书'] },
+        { rank: '正七品', titles: ['翰林院编修', '通政使司知事'] },
+        { rank: '从六品', titles: ['左右春坊左右赞善', '国子监司业'] },
+        { rank: '正六品', titles: ['内阁侍读', '左右春坊左右中允'] },
+        { rank: '从五品', titles: ['翰林院侍读', '翰林院侍讲', '司经局洗马'] },
+        { rank: '正五品', titles: ['左右春坊左右庶子', '六科给事中'] },
+        { rank: '从四品', titles: ['翰林院侍读学士', '内阁侍读学士'] },
+        { rank: '正四品', titles: ['大理寺少卿', '太常寺少卿', '都察院佥都御史'] },
+        { rank: '从三品', titles: ['光禄寺卿', '太仆寺卿'] },
+        { rank: '正三品', titles: ['大理寺卿', '通政使司通政使', '都察院副都御史'] },
+        { rank: '从二品', titles: ['内阁学士', '礼部侍郎', '吏部侍郎', '刑部侍郎', '兵部侍郎', '工部侍郎', '户部侍郎', '翰林院掌院学士'] },
+        { rank: '从一品', titles: ['礼部尚书', '吏部尚书', '都察院左都御史'] },
+        { rank: '正一品', titles: ['体仁阁大学士', '保和殿大学士', '武英殿大学士'] }
+    ];
+
+    const ministryTrack = [
+        { rank: '正九品', titles: ['九品笔帖式', '太常寺赞礼郎'] },
+        { rank: '正八品', titles: ['八品笔帖式', '六部司务'] },
+        { rank: '正七品', titles: ['中书', '通政使司经历'] },
+        { rank: '从六品', titles: ['光禄寺署正'] },
+        { rank: '正六品', titles: ['户部主事', '刑部主事', '工部主事', '兵部主事'] },
+        { rank: '从五品', titles: ['户部员外郎', '刑部员外郎', '监察御史'] },
+        { rank: '正五品', titles: ['户部郎中', '刑部郎中', '六科给事中'] },
+        { rank: '从四品', titles: ['知府（挂衔）'] },
+        { rank: '正四品', titles: ['通政使司副使', '六科掌印给事中'] },
+        { rank: '从三品', titles: ['太常寺少卿'] },
+        { rank: '正三品', titles: ['太常寺卿', '宗人府府丞'] },
+        { rank: '从二品', titles: ['工部侍郎', '刑部侍郎', '兵部侍郎'] },
+        { rank: '从一品', titles: ['工部尚书', '刑部尚书', '兵部尚书'] },
+        { rank: '正一品', titles: ['协办大学士'] }
+    ];
+
+    const localTrack = [
+        { rank: '正九品', titles: ['各县主簿', '各府知事'] },
+        { rank: '从八品', titles: ['各府训导', '各县训导'] },
+        { rank: '正八品', titles: ['各县县丞', '各县教谕', '各府经历', '各省按察司知事'] },
+        { rank: '从七品', titles: ['京府经历', '盐运司经历', '各省布政司都事'] },
+        { rank: '正七品', titles: ['各县知县', '巡农御史', '巡盐御史', '各省按察司经历'] },
+        { rank: '从六品', titles: ['各州州同', '各省布政司经历', '各省布政司理问'] },
+        { rank: '正六品', titles: ['各府通判'] },
+        { rank: '从五品', titles: ['各州知州', '盐运司副使'] },
+        { rank: '正五品', titles: ['各府同知'] },                         
+        { rank: '从四品', titles: ['各府知府'] },
+        { rank: '正四品', titles: ['守巡道'] },
+        // { rank: '从三品', titles: ['都转盐运使司盐运使'] },
+        { rank: '正三品', titles: ['顺天府府尹', '奉天府府尹', '各省按察使', '各省提督学政'] },
+        { rank: '从二品', titles: ['各省布政使', '各省巡抚'] },
+        { rank: '正二品', titles: ['各省巡抚', '河道总督', '漕运总督'] },
+        { rank: '从一品', titles: ['各省总督'] },
+        { rank: '正一品', titles: ['各省总督（加兵部尚书、都察院右都御史衔）'] }
+    ];
+
+    let isHanlin = examPath.startsWith('进士') || targetTitle.includes('翰林院') || targetTitle.includes('大学士');
+    
+    const getTrackIndex = (rank) => {
+        let idx = hanlinTrack.findIndex(t => t.rank === rank);
+        if (idx !== -1) return idx;
+        const rankMap = { '正一':14, '从一':13, '正二':12, '从二':11, '正三':10, '从三':9, '正四':8, '从四':7, '正五':6, '从五':5, '正六':4, '从六':3, '正七':2, '从七':1, '正八':0, '从八':0, '正九':0, '从九':0 };
+        let prefix = rank.substring(0, 2);
+        return rankMap[prefix] || 0;
+    };
+
+    let targetIdx = targetRank ? getTrackIndex(targetRank) : 0;
+    
+    let startIdx = 0;
+    let floorIdx = 0; 
+    let scatterTitle = ''; 
+
+    if (examPath === '进士·一甲') {
+        startIdx = hanlinTrack.findIndex(t => t.rank === '从六品');
+        floorIdx = startIdx; 
+        history.push({ year: currentYear, event: '一甲赐进士及第', detail: `授翰林院修撰（从六品）` });
+    } else if (examPath === '进士·二甲') {
+        startIdx = 0; 
+        floorIdx = hanlinTrack.findIndex(t => t.rank === '正七品'); 
+        scatterTitle = '翰林院编修';
+        history.push({ year: currentYear, event: '赐进士出身', detail: `改翰林院庶吉士` });
+    } else if (examPath === '进士·三甲') {
+        if (isHanlin) {
+            startIdx = 0;
+            floorIdx = hanlinTrack.findIndex(t => t.rank === '从七品'); 
+            scatterTitle = '翰林院检讨';
+            history.push({ year: currentYear, event: '赐同进士出身', detail: `改翰林院庶吉士` });
+        } else {
+            startIdx = hanlinTrack.findIndex(t => t.rank === '正七品');
+            floorIdx = startIdx;
+            history.push({ year: currentYear, event: '赐同进士出身', detail: `分发各部院行走` });
         }
-        if (Math.random() < 0.6) {
-            history.push({ year: year2, event: '考绩', detail: `京察${jingchaResult}` });
-        }
-        return history;
+    } else if (originPath === '举人') {
+        startIdx = hanlinTrack.findIndex(t => t.rank === '正七品');
+        floorIdx = 0;
+        history.push({ year: currentYear, event: '大挑一等', detail: `授内阁中书（正七品）` });
+    } else {
+        startIdx = 1;
+        floorIdx = 0;
+        history.push({ year: currentYear, event: `以${originPath}入仕`, detail: `签分各部院笔帖式` });
     }
 
-    if (isJinshi) {
-        if (examPath === '进士·一甲') {
-            const hanlinPost = targetTitle.includes('翰林院') ? targetTitle : randomPick(['翰林院修撰', '翰林院编修']);
-            history.push({ year: year1, event: '入馆', detail: `擢${hanlinPost}（${hanlinEntry}）` });
-            const ministryPick = pickRankedDetail(getMinistryPostOptions(targetRank, targetTitle), targetRankIdx, lastRankIdx);
-            if (ministryPick.idx !== null) lastRankIdx = ministryPick.idx;
-            history.push({ year: year2, event: '升转', detail: `京察${jingchaResult}，${ministryPick.detail}` });
-            if (Math.random() < 0.6) {
-                const extPick = pickRankedDetail(getExternalPostOptions(originPath, targetRank, targetTitle), targetRankIdx, lastRankIdx);
-                if (extPick.idx !== null) lastRankIdx = extPick.idx;
-                history.push({ year: year3, event: '外放', detail: `外放${extPick.detail}历练（${waifangPerf}）` });
+    if (!targetRank || !targetTitle) return history;
+
+    let eventChain = [];
+    let curr = startIdx;
+    let currentlyLocal = false;
+    
+    if (curr === 0 && targetIdx >= floorIdx) {
+        curr = floorIdx;
+        eventChain.push({ type: 'scatter', idx: curr, isLocal: false });
+    }
+
+    let loopSafe = 0;
+    while (curr !== targetIdx && loopSafe < 25) {
+        loopSafe++;
+        
+        let rand = Math.random();
+
+        if (curr >= 2 && curr <= 13) {
+            if (!currentlyLocal && rand < 0.15) {
+                currentlyLocal = true;
+                eventChain.push({ type: 'outward', idx: curr, isLocal: currentlyLocal });
+                continue;
+            } else if (currentlyLocal && rand < 0.20) {
+                currentlyLocal = false;
+                eventChain.push({ type: 'inward', idx: curr, isLocal: currentlyLocal });
+                continue;
             }
-            return history;
         }
 
-        if (examPath === '进士·二甲') {
-            if (Math.random() < 0.7) {
-                const hanlinTarget = targetTitle.includes('翰林院') ? targetTitle : randomPick(['翰林院编修', '翰林院检讨']);
-                history.push({ year: year1, event: '入馆', detail: `擢庶吉士（${hanlinEntry}）` });
-                history.push({ year: year2, event: '散馆', detail: `散馆${sanguanResult}，留任${hanlinTarget}` });
+        if (curr < targetIdx) { 
+            if (rand < 0.02 && curr > floorIdx + 1 && (targetIdx - curr) > 2) {
+                curr -= 1; 
+                eventChain.push({ type: 'demote', idx: curr, isLocal: currentlyLocal });
+            } else if (rand < 0.12) {
+                eventChain.push({ type: 'mourning', idx: curr, isLocal: currentlyLocal }); 
+            } else if (rand < 0.22) {
+                eventChain.push({ type: 'transfer', idx: curr, isLocal: currentlyLocal }); 
+            } else if (rand < 0.35) {
+                eventChain.push({ type: 'stay', idx: curr, isLocal: currentlyLocal }); 
             } else {
-                const ministryPick = pickRankedDetail(getMinistryPostOptions(targetRank, targetTitle), targetRankIdx, lastRankIdx);
-                if (ministryPick.idx !== null) lastRankIdx = ministryPick.idx;
-                history.push({ year: year1, event: '升转', detail: `京察${jingchaResult}，${ministryPick.detail}` });
+                let step = (Math.random() < 0.25 && curr + 2 <= targetIdx) ? 2 : 1;
+                curr += step; 
+                eventChain.push({ type: 'promote', idx: curr, isLocal: currentlyLocal });
             }
-            if (Math.random() < 0.55) {
-                const extPick = pickRankedDetail(getExternalPostOptions(originPath, targetRank, targetTitle), targetRankIdx, lastRankIdx);
-                if (extPick.idx !== null) lastRankIdx = extPick.idx;
-                history.push({ year: year3, event: '外放', detail: `外放${extPick.detail}历练（${waifangPerf}）` });
+        } else if (curr > targetIdx) {
+            if (rand < 0.3) {
+                eventChain.push({ type: 'stay', idx: curr, isLocal: currentlyLocal });
+            } else {
+                curr -= 1; 
+                curr = Math.max(floorIdx, curr); 
+                eventChain.push({ type: 'demote', idx: curr, isLocal: currentlyLocal });
             }
-            return history;
         }
-
-        if (Math.random() < 0.65) {
-            const extPick = pickRankedDetail(getExternalPostOptions(originPath, targetRank, targetTitle), targetRankIdx, lastRankIdx);
-            if (extPick.idx !== null) lastRankIdx = extPick.idx;
-            history.push({ year: year1, event: '外放', detail: `外放${extPick.detail}治事（${waifangPerf}）` });
-            const promoPick = pickNeutralDetail(getLocalPromotionOptions(targetRank), lastRankIdx);
-            history.push({ year: year2, event: '历练', detail: promoPick.detail });
-            const ministryPick = pickRankedDetail(getMinistryPostOptions(targetRank, targetTitle), targetRankIdx, lastRankIdx);
-            if (ministryPick.idx !== null) lastRankIdx = ministryPick.idx;
-            history.push({ year: year3, event: '回京', detail: `京察${jingchaResult}，${ministryPick.detail}` });
-            return history;
-        }
-
-        const ministryPick = pickRankedDetail(getMinistryPostOptions(targetRank, targetTitle), targetRankIdx, lastRankIdx);
-        if (ministryPick.idx !== null) lastRankIdx = ministryPick.idx;
-        history.push({ year: year1, event: '入部', detail: `京察${jingchaResult}，${ministryPick.detail}` });
-        const ministryPick2 = pickRankedDetail(getMinistryPostOptions(targetRank, targetTitle), targetRankIdx, lastRankIdx, ministryPick.detail);
-        if (ministryPick2.idx !== null) lastRankIdx = ministryPick2.idx;
-        history.push({ year: year2, event: '升转', detail: ministryPick2.detail });
-        if (Math.random() < 0.6) {
-            const extPick = pickRankedDetail(getExternalPostOptions(originPath, targetRank, targetTitle), targetRankIdx, lastRankIdx);
-            if (extPick.idx !== null) lastRankIdx = extPick.idx;
-            history.push({ year: year3, event: '外放', detail: `外放${extPick.detail}历练（${waifangPerf}）` });
-        }
-        return history;
     }
 
-    if (originPath === '举人') {
-        const extPick = pickRankedDetail(getExternalPostOptions(originPath, targetRank, targetTitle), targetRankIdx, lastRankIdx);
-        if (extPick.idx !== null) lastRankIdx = extPick.idx;
-        history.push({ year: year1, event: '外放', detail: `外放${extPick.detail}（${waifangPerf}）` });
-        const promoPick = pickNeutralDetail(getLocalPromotionOptions(targetRank), lastRankIdx);
-        history.push({ year: year2, event: '历练', detail: promoPick.detail });
-        if (Math.random() < 0.55) {
-            const ministryPick = pickRankedDetail(getMinistryPostOptions(targetRank, targetTitle), targetRankIdx, lastRankIdx);
-            if (ministryPick.idx !== null) lastRankIdx = ministryPick.idx;
-            history.push({ year: year3, event: '回京', detail: `京察${jingchaResult}，${ministryPick.detail}` });
+    let availableYears = Math.max(1, CURRENT_WORLD_YEAR - serviceStartYear);
+    
+    let mourningCount = eventChain.filter(e => e.type === 'mourning').length;
+    while (mourningCount * 3 + eventChain.length > availableYears && mourningCount > 0) {
+        let removeIdx = eventChain.findIndex(e => e.type === 'mourning');
+        if (removeIdx > -1) eventChain.splice(removeIdx, 1);
+        mourningCount--;
+    }
+
+    let lastTitle = (examPath === '进士·一甲') ? '翰林院修撰' : ''; 
+
+    for (let i = 0; i < eventChain.length; i++) {
+        let ev = eventChain[i];
+        let stepYears = 0;
+
+        if (ev.type === 'mourning') {
+            stepYears = 3; 
         } else {
-            const promoPick2 = pickNeutralDetail(getLocalPromotionOptions(targetRank), lastRankIdx, promoPick.detail);
-            history.push({ year: year3, event: '升转', detail: promoPick2.detail });
+            let remainingEvents = eventChain.length - i;
+            let expectedYears = Math.max(0, Math.floor(availableYears / remainingEvents));
+            if (expectedYears > 1 && Math.random() < 0.4) stepYears = expectedYears - 1;
+            else if (Math.random() < 0.3) stepYears = expectedYears + 1;
+            else stepYears = expectedYears;
         }
-        return history;
+        
+        stepYears = Math.min(stepYears, availableYears);
+        currentYear += stepYears;
+        availableYears -= stepYears;
+
+        let currentTrack = ev.isLocal ? localTrack : (isHanlin ? hanlinTrack : ministryTrack);
+        
+        let rankStr = currentTrack[ev.idx].rank;
+        let titleOptions = currentTrack[ev.idx].titles;
+        
+        let availableTitles = titleOptions.filter(t => t !== lastTitle);
+
+        if (examPath === '进士·一甲' && rankStr === '从六品' && !ev.isLocal) {
+            availableTitles = ['翰林院修撰'];
+        }
+
+        let titleStr = availableTitles.length > 0 
+            ? availableTitles[Math.floor(Math.random() * availableTitles.length)] 
+            : titleOptions[0]; 
+
+        if (ev.type === 'scatter' && scatterTitle) {
+            titleStr = scatterTitle;
+        }
+
+        if (i === eventChain.length - 1 && ev.idx === targetIdx) {
+            titleStr = targetTitle;
+            rankStr = targetRank || rankStr;
+        }
+
+        switch (ev.type) {
+            case 'scatter':
+                history.push({ year: currentYear, event: '散馆', detail: `授${titleStr}（${rankStr}）` });
+                break;
+            case 'outward':
+                history.push({ year: currentYear, event: '外放', detail: `出为${titleStr}（${rankStr}）` });
+                break;
+            case 'inward':
+                history.push({ year: currentYear, event: '内调', detail: `回京授${titleStr}（${rankStr}）` });
+                break;
+            case 'stay':
+                history.push({ year: currentYear, event: '京察/大计', detail: `留任${titleStr}（${rankStr}）` });
+                break;
+            case 'promote':
+                history.push({ year: currentYear, event: '擢', detail: `升授${titleStr}（${rankStr}）` });
+                break;
+            case 'demote':
+                history.push({ year: currentYear, event: '缘事降职', detail: `降为${titleStr}（${rankStr}）` });
+                break;
+            case 'transfer':
+                if (titleStr === lastTitle) {
+                    history.push({ year: currentYear, event: '考满', detail: `续任${titleStr}（${rankStr}）` });
+                } else {
+                    history.push({ year: currentYear, event: '调', detail: `改任${titleStr}（${rankStr}）` });
+                }
+                break;
+            case 'mourning':
+                history.push({ year: currentYear - 3, event: '丁忧', detail: `回籍守制` });
+                history.push({ year: currentYear, event: '服阕', detail: `起复${titleStr}（${rankStr}）` });
+                break;
+        }
+
+        lastTitle = titleStr; 
     }
 
-    if (originPath === '贡生') {
-        history.push({ year: year1, event: '教职', detail: `任${randomPick(['国子监助教', '国子监学正', '府教授', '县教谕'])}` });
-        const extPick = pickRankedDetail(getExternalPostOptions(originPath, targetRank, targetTitle), targetRankIdx, lastRankIdx);
-        if (extPick.idx !== null) lastRankIdx = extPick.idx;
-        history.push({ year: year2, event: '外放', detail: `改授${extPick.detail}（${waifangPerf}）` });
-        if (Math.random() < 0.5) {
-            const promoPick = pickNeutralDetail(getLocalPromotionOptions(targetRank), lastRankIdx);
-            history.push({ year: year3, event: '历练', detail: promoPick.detail });
-        } else {
-            const ministryPick = pickRankedDetail(getMinistryPostOptions(targetRank, targetTitle), targetRankIdx, lastRankIdx);
-            if (ministryPick.idx !== null) lastRankIdx = ministryPick.idx;
-            history.push({ year: year3, event: '回京', detail: `京察${jingchaResult}，${ministryPick.detail}` });
-        }
-        return history;
-    }
-
-    if (originPath === '荫生') {
-        history.push({ year: year1, event: '门荫', detail: randomPick(['恩荫入监', '候补京职', '随衙学习']) });
-        const extPick = pickRankedDetail(getExternalPostOptions(originPath, targetRank, targetTitle), targetRankIdx, lastRankIdx);
-        if (extPick.idx !== null) lastRankIdx = extPick.idx;
-        history.push({ year: year2, event: '外放', detail: `补授${extPick.detail}（${waifangPerf}）` });
-        if (Math.random() < 0.45) {
-            const ministryPick = pickRankedDetail(getMinistryPostOptions(targetRank, targetTitle), targetRankIdx, lastRankIdx);
-            if (ministryPick.idx !== null) lastRankIdx = ministryPick.idx;
-            history.push({ year: year3, event: '回京', detail: `京察${jingchaResult}，${ministryPick.detail}` });
-        } else {
-            const promoPick = pickNeutralDetail(getLocalPromotionOptions(targetRank), lastRankIdx);
-            history.push({ year: year3, event: '历练', detail: promoPick.detail });
-        }
-        return history;
-    }
-
-    if (originPath === '捐纳') {
-        history.push({ year: year1, event: '捐纳', detail: '捐纳候补' });
-        const extPick = pickRankedDetail(getExternalPostOptions(originPath, targetRank, targetTitle), targetRankIdx, lastRankIdx);
-        if (extPick.idx !== null) lastRankIdx = extPick.idx;
-        history.push({ year: year2, event: '外放', detail: `补授${extPick.detail}（${waifangPerf}）` });
-        if (Math.random() < 0.35) {
-            const promoPick = pickNeutralDetail(getLocalPromotionOptions(targetRank), lastRankIdx);
-            history.push({ year: year3, event: '历练', detail: promoPick.detail });
-        } else {
-            history.push({ year: year3, event: '候补', detail: '仍在候补或改任佐贰' });
-        }
-        return history;
-    }
-
-    const localPost = randomPick(['知县', '知州', '县丞', '州同', '主簿']);
-    history.push({ year: year1, event: '外放', detail: `外放${localPost}（${waifangPerf}）` });
-    history.push({ year: year2, event: '历练', detail: '升补州府属官' });
-    if (Math.random() < 0.5) {
-        history.push({ year: year3, event: '回京', detail: `京察${jingchaResult}，候补京职` });
-    }
     return history;
 }
-
-// ===== Exported helper functions needed by UI files =====
 
 export function ensureOfficialsStateShape() {
     if (!state.officials || typeof state.officials !== 'object') {
@@ -1025,10 +1098,6 @@ export function getTimelineText(official) {
         return `${item.startYear}-${end} ${item.title}（${tag}）`;
     }).join('；');
 }
-
-// ===== Public API functions =====
-
-// ===== 官员管理系统 =====
 
 /**
  * 创建一个新官员
@@ -1248,6 +1317,4 @@ export function revokeConcurrentPostFromOfficial(offId, positionTitle) {
             removeVirtualLibuShilang(official, OFFICIAL_TIMELINE_BASE_YEAR);
         }
     }
-
-    // UI refreshing is handled by the calling code
 }
