@@ -99,9 +99,20 @@ export function formatChildName(child, familySurname) {
 function getRankTargetAge(rank) {
     const idx = OFFICIAL_RANK_ORDER.indexOf(rank);
     if (idx < 0) return 36;
-    const raw = Math.round(58 - idx * 1.8);
+    let raw = Math.round(58 - idx * 1.8);
+    if (rank === '正一品' && Math.random() < 0.5) {
+        raw += 10 + Math.floor(Math.random() * 9);
+    } else if (rank === '从一品' && Math.random() < 0.35) {
+        raw += 8 + Math.floor(Math.random() * 8);
+    }
     const minAge = getMinAgeForRank(rank);
-    return Math.max(minAge, Math.min(60, raw));
+    let maxAge = 60;
+    if (rank === '正一品' && Math.random() < 0.3) {
+        maxAge = 76;
+    } else if (rank === '从一品' && Math.random() < 0.18) {
+        maxAge = 72;
+    }
+    return Math.max(minAge, Math.min(maxAge, raw));
 }
 
 function ensureMinAgeForRank(official, rank) {
@@ -351,7 +362,7 @@ function getHonoraryRequiredRank(title = '') {
         '太子太师', '太子太傅', '太子太保',
         '太子少师', '太子少傅', '太子少保'
     ];
-    return strictTitles.includes(title) ? '从二品' : null;
+    return strictTitles.includes(title) ? '正二品' : null;
 }
 
 export function getHonoraryGroup(title) {
@@ -480,7 +491,7 @@ function ensureExamPathForMainPost(official, rank, positionTitle, appointedYear)
 }
 
 function shouldAutoGrantHonorary(title = '') {
-    const keepVacant = ['太师', '太傅', '太保', '保和殿大学士', '都察院右都御史', '礼部侍郎（虚衔）'];
+    const keepVacant = ['太师', '太傅', '太保', '少师', '少傅', '少保', '太子太师', '太子太傅', '太子太保', '保和殿大学士', '都察院右都御史', '礼部侍郎（虚衔）'];
     const normalizedTitle = title.replace(/\s+/g, '');
     const normalizedVacant = keepVacant.map(t => t.replace(/\s+/g, ''));
     return !normalizedVacant.includes(normalizedTitle);
@@ -579,11 +590,12 @@ function weightedPickByRule(title, rank, type) {
     const rule = getRuleForPost(title, type);
     const isGrandTitle = isGrandSecretariatTitle(title);
     const isAssistant = title === '协办大学士';
+    const minAgeGate = Math.max(rule.minAge || 0, getMinAgeForRank(rank));
     const pool = Object.values(state.officials.byId).filter(o => {
         if (o.status !== 'in_service') return false;
         if (o.concurrentPosts.some(p => p.title === title)) return false;
         if ((o.concurrentPosts.length || 0) >= (rule.maxConcurrent || 3)) return false;
-        if (o.age < (rule.minAge || 24)) return false;
+        if (o.age < minAgeGate) return false;
         if (type === 'honorary' && !canHoldHonoraryTitle(title, o.mainPost?.rank || '')) return false;
         if (type === 'honorary' && isHonoraryCandidateDisallowed(o, title)) return false;
         if (type === 'honorary' && hasConflictingHonorary(o, title)) return false;
@@ -738,14 +750,14 @@ export function buildInitialCareerHistory(originPath = '', examPath = '', servic
         { rank: '正八品', titles: ['各县县丞', '各县教谕', '各府经历', '各省按察司知事'] },
         { rank: '从七品', titles: ['京府经历', '盐运司经历', '各省布政司都事'] },
         { rank: '正七品', titles: ['各县知县', '巡农御史', '巡盐御史', '各省按察司经历'] },
-        { rank: '从六品', titles: ['各州州同', '各省布政司经历', '各省布政司理问'] },
+        { rank: '从六品', titles: ['各省布政司经历', '各省布政司理问'] },
         { rank: '正六品', titles: ['各府通判'] },
         { rank: '从五品', titles: ['各州知州', '盐运司副使'] },
-        { rank: '正五品', titles: ['各府同知'] },                         
+        // { rank: '正五品', titles: ['各府同知'] },                         
         { rank: '从四品', titles: ['各府知府'] },
         { rank: '正四品', titles: ['守巡道'] },
         // { rank: '从三品', titles: ['都转盐运使司盐运使'] },
-        { rank: '正三品', titles: ['顺天府府尹', '奉天府府尹', '各省按察使', '各省提督学政'] },
+        { rank: '正三品', titles: ['各省按察使', '各省提督学政'] },
         { rank: '从二品', titles: ['各省布政使', '各省巡抚'] },
         { rank: '正二品', titles: ['各省巡抚', '河道总督', '漕运总督'] },
         { rank: '从一品', titles: ['各省总督'] },
@@ -803,6 +815,7 @@ export function buildInitialCareerHistory(originPath = '', examPath = '', servic
     let eventChain = [];
     let curr = startIdx;
     let currentlyLocal = false;
+    const highRankIdx = getTrackIndex('从二品');
     
     if (curr === 0 && targetIdx >= floorIdx) {
         curr = floorIdx;
@@ -814,6 +827,12 @@ export function buildInitialCareerHistory(originPath = '', examPath = '', servic
         loopSafe++;
         
         let rand = Math.random();
+
+        if (targetIdx >= highRankIdx && (targetIdx - curr) <= 2 && currentlyLocal) {
+            currentlyLocal = false;
+            eventChain.push({ type: 'inward', idx: curr, isLocal: currentlyLocal });
+            continue;
+        }
 
         if (curr >= 2 && curr <= 13) {
             if (!currentlyLocal && rand < 0.15) {
@@ -863,29 +882,62 @@ export function buildInitialCareerHistory(originPath = '', examPath = '', servic
     }
 
     let lastTitle = (examPath === '进士·一甲') ? '翰林院修撰' : ''; 
+    let lastRankIdx = null;
+
+    const pickLocalByRankIdx = (rankIdx) => {
+        const items = localTrack.map(item => ({
+            rank: item.rank,
+            titles: item.titles,
+            idx: getRankIndex(item.rank)
+        }));
+        items.sort((a, b) => Math.abs(a.idx - rankIdx) - Math.abs(b.idx - rankIdx));
+        const pick = items[0] || items[items.length - 1];
+        const title = randomPick(pick?.titles || []) || (pick?.titles?.[0] || '各府知事');
+        return { rank: pick.rank, title };
+    };
+
+    const getTenureYears = (rankStr, eventType) => {
+        const idx = getRankIndex(rankStr);
+        let base = 1;
+        if (idx <= getRankIndex('正三品')) base = 3;
+        else if (idx <= getRankIndex('正五品')) base = 2;
+        if (eventType === 'stay' || eventType === 'transfer') base += 1;
+        return base + Math.floor(Math.random() * 2);
+    };
 
     for (let i = 0; i < eventChain.length; i++) {
         let ev = eventChain[i];
-        let stepYears = 0;
-
-        if (ev.type === 'mourning') {
-            stepYears = 3; 
-        } else {
-            let remainingEvents = eventChain.length - i;
-            let expectedYears = Math.max(0, Math.floor(availableYears / remainingEvents));
-            if (expectedYears > 1 && Math.random() < 0.4) stepYears = expectedYears - 1;
-            else if (Math.random() < 0.3) stepYears = expectedYears + 1;
-            else stepYears = expectedYears;
-        }
-        
-        stepYears = Math.min(stepYears, availableYears);
-        currentYear += stepYears;
-        availableYears -= stepYears;
-
         let currentTrack = ev.isLocal ? localTrack : (isHanlin ? hanlinTrack : ministryTrack);
-        
         let rankStr = currentTrack[ev.idx].rank;
         let titleOptions = currentTrack[ev.idx].titles;
+
+        if (ev.isLocal && Number.isInteger(lastRankIdx)) {
+            const proposedIdx = getRankIndex(rankStr);
+            const maxDrop = lastRankIdx <= getRankIndex('从二品') ? 0 : 1;
+            if (proposedIdx > lastRankIdx + maxDrop) {
+                const adjusted = pickLocalByRankIdx(lastRankIdx + maxDrop);
+                rankStr = adjusted.rank;
+                titleOptions = [adjusted.title];
+            }
+        }
+
+        let stepYears = 0;
+        if (ev.type === 'mourning') {
+            stepYears = 3;
+        } else {
+            const remainingEvents = eventChain.length - i;
+            const expectedYears = Math.max(1, Math.floor(availableYears / remainingEvents));
+            const tenure = getTenureYears(rankStr, ev.type);
+            stepYears = Math.min(expectedYears + (Math.random() < 0.25 ? 1 : 0), tenure);
+        }
+
+        if (availableYears <= 0) {
+            stepYears = 0;
+        } else {
+            stepYears = Math.max(1, Math.min(stepYears, availableYears));
+        }
+        currentYear += stepYears;
+        availableYears -= stepYears;
         
         let availableTitles = titleOptions.filter(t => t !== lastTitle);
 
@@ -939,9 +991,26 @@ export function buildInitialCareerHistory(originPath = '', examPath = '', servic
         }
 
         lastTitle = titleStr; 
+        lastRankIdx = getRankIndex(rankStr);
     }
 
-    return history;
+    return collapseHistoryByYear(history);
+}
+
+function collapseHistoryByYear(history) {
+    if (!Array.isArray(history) || history.length === 0) return history;
+    const grouped = new Map();
+    history.forEach(item => {
+        const year = item.year;
+        const detail = item.detail || item.event || '';
+        if (!grouped.has(year)) {
+            grouped.set(year, { year, event: '任命', detail: detail ? detail : '任命' });
+        } else if (detail) {
+            const existing = grouped.get(year);
+            existing.detail = `${existing.detail}，${detail}`;
+        }
+    });
+    return Array.from(grouped.values()).sort((a, b) => (a.year || 0) - (b.year || 0));
 }
 
 export function ensureOfficialsStateShape() {

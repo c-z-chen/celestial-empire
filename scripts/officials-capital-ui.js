@@ -4,8 +4,8 @@ import {
     ensureCapitalOfficialsInitialized, listOfficialsByMainRank, getPositionOrderMap,
     isCollapsiblePostTitle, getTimelineText, getHonoraryGroup, rankScore,
     isHonoraryCandidateDisallowed, hasConflictingHonorary, canHoldHonoraryTitle,
-    isGrandSecretariatTitle, isCabinetEligibleOfficial, revokeConcurrentTitleFromAll,
-    formatChildName, deriveOriginPathFromExam, normalizeExamPath, regenerateCareerHistory,
+    isGrandSecretariatTitle, isCabinetEligibleOfficial,
+    formatChildName, regenerateCareerHistory,
     addConcurrentPost, revokeConcurrentPostFromOfficial
 } from './officials-core.js';
 
@@ -24,40 +24,6 @@ function addPowerPost(offId, title) {
     addConcurrentPost(offId, title, rank, 'power', OFFICIAL_TIMELINE_BASE_YEAR);
     renderCapitalLeftOfficialList();
     renderSelectedOfficialDetail();
-}
-
-function renderResumeCard(offId) {
-    const off = state.officials.byId[offId];
-    if (!off) return '';
-    const profile = off.profile || {};
-    const exam = profile.examination || {};
-    const family = profile.family || {};
-    const entry = profile.entry || {};
-    const personality = (profile.personality || []).join('、') || '未知';
-    const mainPost = off.mainPost?.title || '未授实职';
-    const conc = (off.concurrentPosts || []).map(p => p.title).join('、') || '无';
-    const lastCareer = (profile.careerHistory || []).slice(-3).map(x => `${x.year}：${x.detail || x.event}`).join('；') || '暂无';
-    const originPath = profile.originPath || deriveOriginPathFromExam(normalizeExamPath(exam.path || '')) || '未知';
-    const childrenList = (family.children || []).slice(0, 3)
-        .map(c => formatChildName(c, family.surname))
-        .join('、') || '无';
-
-    return `
-        <details class="official-resume-card">
-            <summary class="official-resume-summary">${off.name}</summary>
-            <div class="official-resume-body">
-                <div><span class="resume-k">本官</span><span class="resume-v">${mainPost}</span></div>
-                <div><span class="resume-k">兼衔</span><span class="resume-v">${conc}</span></div>
-                <div><span class="resume-k">出身</span><span class="resume-v">${profile.birthYear || '未知'}年生，${profile.birthPlace || '未知'}，${profile.birthStatus || '未知'}</span></div>
-                <div><span class="resume-k">科举</span><span class="resume-v">${exam.path || '未知'}（${exam.year || '未知'}）</span></div>
-                <div><span class="resume-k">出身路径</span><span class="resume-v">${originPath}</span></div>
-                <div><span class="resume-k">家族</span><span class="resume-v">父${family.father || '未知'}，母${family.mother || '未知'}，配偶${family.spouse || '未知'}，子女${childrenList}</span></div>
-                <div><span class="resume-k">性格</span><span class="resume-v">${personality}</span></div>
-                <div><span class="resume-k">入仕</span><span class="resume-v">${entry.year || '未知'}年</span></div>
-                <div><span class="resume-k">历任</span><span class="resume-v">${lastCareer}</span></div>
-            </div>
-        </details>
-    `;
 }
 
 function promptGrantHonoraryTitle(title, rank) {
@@ -390,7 +356,11 @@ function renderCapitalLeftOfficialList() {
                 const offs = posGrouped[pos];
                 const rows = offs.map(off => {
                     const selected = off.id === state.selectedOfficialId ? 'is-active' : '';
-                    const subtitle = `${off.age}岁｜${off.mainPost?.acquiredYear || '未知'}授`;
+                    const acquiredYear = off.mainPost?.acquiredYear || OFFICIAL_TIMELINE_BASE_YEAR;
+                    const ageAtAppointment = Number.isInteger(off.birthYear)
+                        ? acquiredYear - off.birthYear
+                        : off.age;
+                    const subtitle = `${ageAtAppointment}岁｜${off.mainPost?.acquiredYear || '未知'}授`;
                     return `<button class="capital-left-official ${selected}" data-offid="${off.id}"><span>${off.name}</span><small>${subtitle}</small></button>`;
                 }).join('');
 
